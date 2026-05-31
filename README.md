@@ -1,287 +1,225 @@
-# UTXO Memory Layer (UML) for eCash
+# Bettyjane
 
-A brutally efficient, consensus-anchored memory layer for an autonomous agent that lives as a quine covenant on eCash (XEC). UML is not a standalone contract. It is a module of the quine's carried state, so a single signature authorizes both a cognition step and a memory mutation, and the agent's memory history and cognition history are literally the same chain.
-
-Status: design spec, pre-implementation. Target stack: TypeScript, `ecash-lib`, Chronik. Assumes Avalanche pre-consensus (live on mainnet since 2025-11-15, sub-3-second finality, finalized transactions are not double-spendable).
+A persistent, public, tamper-proof memory for a human-plus-agent team, living on eCash (XEC). In this version every memory is a coin. Built to be understood and run, not admired.
 
 ---
 
-## 1. Motivation and prior art
+## The one idea
 
-The hard constraint UML solves is the same one every agent memory system fights: a fixed context window fills, and once full, older information silently disappears (MemGPT, Packer et al. 2023, arXiv:2310.08560). Naively growing context is not a fix. It delays the problem while raising cost and latency, and long-context models utilize the extra tokens poorly (Mem0, Chhikara et al. 2025, arXiv:2504.19413).
+An LLM has amnesia. Claude, GPT, any of them, forget everything the moment a call ends. They are brilliant and they wake up with a blank mind every single time.
 
-UML borrows three settled ideas and maps them onto UTXO primitives.
+So we give the team a notebook, except the notebook is made of coins. Each memory is a tiny coin sitting on the eCash chain. The agent's mind, right now, is the handful of coins it currently holds. To forget something, it spends that coin and the coin leaves the table. The spending is recorded forever, so nothing is truly destroyed, it is just no longer in hand.
 
-1. **Hierarchical paging.** MemGPT treats the context window like RAM and an external store like disk, paging content in and out under explicit operations. Letta's production form splits this into core, recall, and archival tiers. UML reproduces this three-tier hierarchy directly (Section 3).
-
-2. **Atomic memory operations.** The survey "Rethinking Memory in LLM-based Agents" (arXiv:2505.00675) decomposes memory into six operations: consolidation, updating, indexing, forgetting, retrieval, and compression. UML implements each as a concrete op (Section 6), and treats forgetting as demotion out of context rather than destruction, which is both cheaper and a better fit for the human-memory analogy.
-
-3. **Scored eviction.** Generative Agents (Park et al. 2023, arXiv:2304.03442) retrieve by a weighted sum of recency, importance, and relevance. UML uses the same triad as its default eviction score, computed entirely off-chain (Section 7).
-
-Two findings shape the efficiency and safety posture. Mem0 reports roughly 90 percent token savings and 91 percent lower p95 latency over full-context baselines on LoCoMo, which is the bar a memory layer has to beat to be worth running. And the security literature now documents memory poisoning as a live attack class: query-injection, trajectory poisoning, and contamination that spreads through shared memory stores ("A Survey on the Security of Long-Term Memory in LLM Agents", arXiv:2604.16548). UML cannot stop a poisoned write, but it makes every write tamper-evident, ordered, and non-repudiable, which is the realistic security goal (Section 9).
+The agent is not a program running on the blockchain. The agent is the set of coins it holds and the trail of how that set changed. Its identity and memory are the chain. Its thinking happens elsewhere.
 
 ---
 
-## 2. Design principles (the "brutal" part)
+## The three pieces
 
-These are non-negotiable. Every later decision derives from them.
+Think of an old game console.
 
-**P1. O(1) consensus state.** The memory footprint inside the quine's carried state is a fixed-size header (Section 4), constant whether the agent holds ten memories or ten million. This is the headline property. Memory count never touches the carried-state budget.
+1. **The notebook = coins on the eCash chain.** The save file. The team's identity, its current memories, and the full history of every change. The chain keeps it safe and ordered for free.
 
-**P2. One transaction per generation.** Memory operations ride inside the same transaction as the quine step, packed via eMPP (eCash Multi-Pushdata Protocol, the same mechanism ALP uses). There are no separate memory-write transactions.
+2. **The brain = an LLM API.** The console, the thing that plays. Claude Code, the Claude API, any agent framework. It has no memory of its own. You hand it the current coins as text, it thinks, it tells you what to remember and what to forget.
 
-**P3. Content off-chain, commitments on-chain.** Cell bodies live in a content-addressed store. Only 32-byte hashes reach consensus. This is the single largest efficiency lever and keeps every transaction small.
-
-**P4. The covenant verifies structure, not content.** Script enforces self-replication, a monotonic counter, and an optional capacity bound. It does not verify Merkle or accumulator proofs, which would blow the 1,650-byte unlocking-script limit. Heavy verification is deferred to replay, where anyone can recompute every root from the op log and confirm the signed headers never lied (Section 8).
-
-**P5. Cheapest commitment that supports the required operations.** The bounded core set uses a flat hash (recompute is trivial at small K). The unbounded archive uses a one-hash-per-eviction chain, with a Merkle Mountain Range upgrade path reserved for when third-party inclusion proofs are actually needed (Section 5).
+3. **The runner = whatever advances a turn.** Your own small loop, or, when you use Claude Code, two hook scripts that fire on their own. Without it the coins just sit there, frozen between turns.
 
 ---
 
-## 3. Tier model
+## What is in the notebook
 
-Three tiers, mapping MemGPT's RAM/disk hierarchy onto UTXO state.
+**Each memory is a coin.** A memory is a dust coin (a tiny fixed amount of XEC) sitting at the agent's memory address, with its text attached when it was minted. The coins the agent holds right now, the unspent ones, are its current memory. You read them in a single call: list the live coins at that address.
 
-| Tier | Analogy | Lives as | Committed by | Cost to read |
-|------|---------|----------|--------------|--------------|
-| Core | RAM, in-context | the bounded working set of at most K cells, loaded into the prompt every generation | `core_root` in the header | free, it is already in state |
-| Recall | warm | live UTXOs not currently in core | not committed (live set is queryable) | cheap, one Chronik UTXO query |
-| Archive | disk, external context | evicted cells, no longer live UTXOs, content preserved in the op log of the transaction that evicted them | `archive_root` in the header | replay, or an off-chain index |
+**Forgetting is spending.** To drop a memory, spend its coin. The dust comes back to the agent's wallet, the coin disappears from the live set, and the act of spending stays in history. So "what do I remember now" is the live set, and "what did I once know" is the full chain.
 
-Core is capacity-bounded, which is what guarantees the prompt never grows without limit. Eviction is demotion across tiers, terminating in archive. Because the chain is immutable, archived content is never destroyed, only moved out of context, and is recoverable by retrieval (Section 6, PROMOTE).
+Analogy: the agent's mind is a small pile of coins on a table. Remembering lays a new coin down. Forgetting picks one up and pockets it. A photo of the table is taken at every change, so you can always see what it held last week.
+
+**The live set is the pool. The working set is smaller.** The live coins are already curated, because you spent the junk. But you still do not pour all of them into the prompt, because long context makes the brain worse and costs more. Each turn the brain sees a small working set: the human's pins, plus the few live coins most relevant right now, picked by a simple search index. How many is a knob, set by what the model uses well, a low number, maybe a couple dozen. It is not set by any limit on the chain.
 
 ---
 
-## 4. Data structures
+## Two pens: the human and the agent
 
-### 4.1 MemoryCell (off-chain, content-addressed)
+The notebook has two authors, and that is a small change, because writing a coin is the only mechanism either pen needs.
 
-```
-cell = {
-  v:        u8        # schema version
-  cell_id:  bytes16   # stable identity, assigned once at ADD, survives updates
-  kind:     u8        # 0 episodic, 1 semantic, 2 procedural  (survey taxonomy)
-  born_gen: u32       # generation created
-  last_gen: u32       # generation last touched      -> recency signal
-  score:    u16       # importance, 0..65535         -> importance signal
-  body_ref: bytes32   # hash or CID of the actual content blob (off-chain)
+**Two keys, two piles.** The agent's memory coins live at one address, controlled by the agent's key. The human's pins live at a second address, controlled by the human's key. Both sit on the same chain, and every coin carries the signature of whoever minted it, so you always know who wrote what.
+
+**Two roles, on purpose.** The agent keeps fast, churning working memories. The human pins rare, durable things: corrections, standing instructions, facts the agent keeps getting wrong. Because pins live at the human's address, the agent's key cannot spend them. It can read a pin and obey it. It cannot erase it.
+
+Analogy: the agent's coins churn on the table. The human's coins are glued to the corner. The agent reads all of them and only ever pockets its own.
+
+**Four verbs, split by key.**
+
+- Agent: `remember(note)` mints a memory coin, `forget(id)` spends one.
+- Human: `pin(note)` mints a pin coin, `unpin(id)` spends one.
+
+The signature is the permission. There is no access system to build.
+
+---
+
+## How it is bound to the quine
+
+When you later wrap this in the self-replicating quine covenant, the memory is bound by ownership. The same key that controls the agent's identity coin controls its memory coins. Spend authority over the memory is spend authority over the agent, one key, one will.
+
+If you ever need to prove to a stranger that the agent's memory at some past moment was exactly a certain set, without them rebuilding the live set from history, add a commitment to that set inside the quine's signed state. That is extra machinery, so leave it out until something actually needs it.
+
+---
+
+## How the agent is born
+
+You create two things: the agent, and its first pins.
+
+Fund the agent's memory address with a little XEC, enough to mint many coins and pay the tiny fees. Mint a couple of pins from the human key to start: the agent's name, its goal, a standing instruction or two. The moment those transactions finalize, about 2 to 3 seconds later, the agent exists, holding its first coins, waiting for its first session.
+
+Lighting the pilot light.
+
+---
+
+## Running it inside Claude Code
+
+Claude Code already gives you the loop, so you do not write a runner. You write three small scripts and let Claude Code's hooks fire them. Bundle them as a plugin and the whole memory layer installs at once.
+
+Three hooks do the work:
+
+- **SessionStart** fires when a session begins. It reads the live coins and the pins from the chain and prints them, and that printed text becomes Claude's context. The agent wakes up already knowing.
+- **Stop** fires after every response. It captures just that turn: if anything is worth keeping or anything went stale, it mints or spends a coin. Most turns write nothing.
+- **SessionEnd** fires once when the session closes. It tidies up: merge near-duplicate coins, spend the stale ones.
+
+A note on cadence. On XEC a write is sub-cent and final in seconds, so cost is not the reason to wait for the end. The reason to be careful is noise. A memory written after every reply tends to capture half-finished thoughts and duplicates, and a live set full of that makes retrieval worse. So `Stop` writes per turn but only a distilled delta, usually a no-op, while `SessionEnd` consolidates. `Stop` captures, `SessionEnd` tidies. Per-turn capture also means a crash loses at most one turn, not the whole session, which is what makes a disposable runner safe. Point `StopFailure` at the same capture script so dead ends get remembered too.
+
+The plugin's `hooks.json`:
+
+```json
+{
+  "hooks": {
+    "SessionStart": [
+      { "hooks": [{ "type": "command",
+          "command": "node ${CLAUDE_PLUGIN_ROOT}/load.js", "timeout": 30 }] }
+    ],
+    "Stop": [
+      { "hooks": [{ "type": "command",
+          "command": "node ${CLAUDE_PLUGIN_ROOT}/capture.js", "timeout": 30 }] }
+    ],
+    "StopFailure": [
+      { "hooks": [{ "type": "command",
+          "command": "node ${CLAUDE_PLUGIN_ROOT}/capture.js", "timeout": 30 }] }
+    ],
+    "SessionEnd": [
+      { "hooks": [{ "type": "command",
+          "command": "node ${CLAUDE_PLUGIN_ROOT}/consolidate.js", "timeout": 60 }] }
+    ]
+  }
 }
-
-cell_hash = SHA256(canonical_cbor(cell))   # version hash of this cell
 ```
 
-Two-level addressing. `cell_id` is the durable handle. `cell_hash` is the hash of the current version (changes on every update). The body is a third hop behind `body_ref`. Only `cell_hash` and `cell_id` ever reach consensus, and only inside roots.
+`load.js`, the wake-up. Its stdout becomes context:
 
-### 4.2 MemoryHeader (in carried state, fixed size)
+```js
+// SessionStart: read memory from the chain, print it as context.
+// listLiveCoins / retrieveRelevant are your helpers over Chronik + the index.
+const pins   = await listLiveCoins(PIN_ADDR);      // human, durable
+const memory = await listLiveCoins(MEMORY_ADDR);   // agent, working pool
+const hits   = retrieveRelevant(memory, MAX_WORKING - pins.length);
+
+console.log([
+  "## Standing notes from Marina (do not contradict)",
+  ...pins.map((p) => `- ${p.text}`),
+  "## What you remember",
+  ...hits.map((m) => `- ${m.text}`),
+].join("\n"));
+process.exit(0);
+```
+
+`capture.js`, the per-turn write. It looks at the latest turn only and usually does nothing:
+
+```js
+// Stop / StopFailure: capture just this turn's delta. Write only if non-empty.
+// distillTurn is cheap (small model or rules); it runs on every turn.
+const input = JSON.parse(readStdin());             // { transcript_path, ... }
+const turn = lastTurn(input.transcript_path);      // the latest exchange only
+
+(async () => {
+  const { remember, forgetIds } = await distillTurn(turn);  // often returns nothing
+  for (const note of remember)  await mintCoin(MEMORY_ADDR, note); // remember
+  for (const id   of forgetIds) await spendCoin(id);              // forget
+})();                                              // backgrounded, do not block
+
+process.exit(0);
+```
+
+`consolidate.js`, the tidy-up. It runs at session end (or every N turns):
+
+```js
+// SessionEnd: merge near-duplicate coins and drop the stale, gated by similarity
+// so it never summarizes away something still distinct.
+(async () => {
+  const memory = await listLiveCoins(MEMORY_ADDR);
+  const { merges, drops } = await consolidate(memory);
+  for (const m of merges) {
+    await mintCoin(MEMORY_ADDR, m.summary);
+    for (const id of m.sourceIds) await spendCoin(id);
+  }
+  for (const id of drops) await spendCoin(id);
+})();
+
+process.exit(0);
+```
+
+The human's two verbs are a tiny CLI signed with the human key, or a plugin slash command:
 
 ```
-MemoryHeader  (fixed, ~76 bytes)
-  magic:          u16      # "UML" + schema version          2
-  gen:            u32      # generation, monotonic            4   (shared with the quine counter)
-  core_count:     u8       # cells currently in core, <= K    1
-  core_root:      bytes32  # commitment over the core set    32
-  archive_count:  u32      # total cells ever archived        4
-  archive_root:   bytes32  # accumulator over the archive    32
-  flags:          u8       # policy and upgrade flags          1
+notebook pin   "Always cite the eCash upgrade date as 2025-11-15."
+notebook unpin <coin-id>
 ```
 
-This 76-byte struct is the entire memory state in consensus, forever, regardless of total memory volume. That is P1 made concrete.
+What a session feels like: you run `claude`, and it opens already knowing its standing notes and recent memory, because SessionStart loaded them. As you work, it lays down a coin whenever a turn produces something worth keeping, because Stop captured it. When you close the session it tidies the pile, because SessionEnd consolidated. Nothing lived on your laptop, and if it had crashed mid-session it would have lost at most one turn. You can watch the memory change in real time by listing the agent's live coins.
 
 ---
 
-## 5. Commitments
+## Plugging in any other agent
 
-### 5.1 core_root (bounded set, flat hash)
-
-```
-core_root = SHA256( concat( sort_asc( [ cell_id_i || cell_hash_i  for i in core ] ) ) )
-```
-
-Sorted by `cell_id` so the commitment is order-independent (set semantics). With K small (default 32, see Section 10), recomputing on every add, update, or evict is O(K) and negligible. A Merkle tree would be premature optimization at this K. If K ever needs to be large, switch core_root to a sorted Merkle tree and nothing else changes.
-
-### 5.2 archive_root (unbounded log, hash chain)
+The whole connection is two functions, and the hooks above are just one way to call them.
 
 ```
-archive_root_0     = 0x00 * 32
-archive_root_{n+1} = SHA256( archive_root_n || evicted_cell_hash || gen_le_u32 )
+loadMemory()  ->  read the chain, return pins plus the top-K live coins as text.
+                  (SessionStart, or paste into any system prompt.)
+saveMemory(remember, forget)  ->  mint and spend coins on the chain.
+                  (Stop, per turn, or call at the end of any agent turn.)
 ```
 
-One SHA-256 per eviction. O(1) update, O(1) state. Tamper-evident: any replay recomputes the chain and compares against the on-chain signed root, and a mismatch localizes the corruption to a single generation.
-
-Limitation, stated honestly. A plain hash chain cannot prove a specific old cell is in the archive without replaying from genesis (or keeping an off-chain index). When you need to hand a third party an inclusion proof for one archived memory without a full replay, set `flags.MMR` and switch the accumulator to a Merkle Mountain Range (append O(log n), root O(1), inclusion proof O(log n)). Until then, the chain is leaner.
+For a raw model API, put the loaded text in the system prompt and ask the model to end its reply with a small JSON block of memory operations, then call `saveMemory`. The brain is interchangeable. Swap Claude for anything and the coins do not change.
 
 ---
 
-## 6. Operations
+## You do not need the covenant to start
 
-Per generation the agent emits an `OpBatch` into the transaction's eMPP payload. Each op maps to one of the six survey operations. Consensus never parses the batch. It only checks the invariant that results from it (Section 8).
+The full quine covenant is the destination, not the starting line.
 
-```
-OpBatch = [ Op, ... ]
+Start with keys. The agent holds its key, the human holds theirs, and the runner (or the hooks) mints and spends coins each turn. Self-replication of the identity coin is a rule the runner follows, not something the chain forces yet. You trust your own keys. That is fine for a persistent, public, tamper-evident, two-author memory, and you can run it this week.
 
-ADD(cell_id, cell_hash)
-  encoding / "updating". Insert into core.
-  If core_count == K, the batch MUST also contain an EVICT or CONSOLIDATE
-  that brings core back within budget. The capacity invariant is on the
-  resulting state, not on op order.
-
-TOUCH(cell_id, cell_hash_new)
-  "indexing" / reinforcement. Bump last_gen and score, producing a new version.
-  Same cell_id, new cell_hash. core_root recomputes.
-
-EVICT(cell_id, cell_hash)
-  "forgetting". Remove from core. Append cell_hash to the archive
-  (archive_root advances, archive_count += 1). If the cell held a dedicated
-  recall-tier UTXO, that UTXO is spent in this same transaction.
-
-CONSOLIDATE([cell_hash, ...] -> summary_cell)
-  "consolidation" + "compression". Replace M core cells with 1 summary.
-  The M originals are EVICTed to archive, the summary is ADDed to core.
-  Net core_count change = 1 - M.
-
-PROMOTE(cell_id) -> ADD
-  "retrieval". Bring an archived or recall cell back into core. Resolves to
-  an ADD whose body_ref points at the recovered content. Read path only,
-  no archive mutation.
-```
-
-A caution carried from the literature, encoded as a default guardrail in Section 7: consolidation that summarizes without deduplication causes catastrophic forgetting, where a summary silently overwrites earlier memories that are still relevant (agent memory survey, arXiv:2512.13564). Naive summarization pipelines lose on the order of 20 percent of encoded facts in practice. Treat CONSOLIDATE as lossy and gate it.
+Upgrade later. Wrap the identity coin in the recursive covenant so no single mistake can make the agent deviate. The memory model does not change, because memory was always just coins owned by the agent's key.
 
 ---
 
-## 7. Eviction policy (off-chain, recommended default)
+## What you give up to keep it simple
 
-Policy is not hard-coded in the covenant. The chain enforces the budget. The agent chooses what to evict. The default is the Generative Agents triad.
-
-```
-keep_score(cell, now_gen, query) =
-      w_r * recency(now_gen - cell.last_gen)      # exponential decay
-    + w_i * importance(cell.score / 65535)        # LLM-assigned at write time
-    + w_l * relevance(cosine(embed(body), embed(query)))   # query-conditioned
-```
-
-When an ADD would push `core_count` above K, evict the lowest `keep_score`, or CONSOLIDATE the lowest-M if and only if they form a tight topical cluster (cosine above a merge threshold), which is the deduplication gate that prevents catastrophic forgetting.
-
-Defaults: `w_r, w_i, w_l = 0.4, 0.3, 0.3`. Consolidation cadence: every 50 to 200 generations, or on core saturation, whichever comes first (the practitioner-reported range). All embeddings and relevance computation live off-chain. Only the resulting set of `(cell_id, cell_hash)` pairs reaches the header.
+- The search index is off chain. It is a cache, not the truth. Embed each coin's text when you mint it, key the vector by the coin id, and rebuild the index from the chain whenever you want. Losing it costs nothing permanent.
+- The live set is your on-chain footprint. Every memory you keep is a coin in the chain's coin set. Spend to forget, both to free the dust and to keep the footprint lean. This is fine at artifact scale and antisocial at millions of coins.
+- The brain still runs off chain. The chain is the memory and the referee. It is not the compute.
 
 ---
 
-## 8. Cryptographic tie to the quine covenant
+## Why bother (the payoff)
 
-This is the load-bearing section.
-
-### 8.1 The binding
-
-Let the quine's full carried state be
-
-```
-S = QuineState || MemoryHeader
-```
-
-a contiguous blob the quine commits to every generation as part of its self-replication. UML requires exactly one thing from the quine: that `MemoryHeader` is a contiguous, covered field of `S`. Given that, the quine's existing authorization signature over `S'` (the next state) already covers the memory roots. No separate memory signature exists, and none is needed.
-
-Two properties follow, and they are the whole point:
-
-- You cannot advance the agent's generation without committing a memory root, because the root is inside the state the quine must sign to reproduce itself.
-- You cannot rewrite a memory root without producing a new generation, which means a new signature and a new transaction that Avalanche finalizes within seconds and that cannot be reorged.
-
-Memory mutation and cognition are therefore the same event, authorized by the same key, ordered by the same consensus.
-
-### 8.2 Enforcement tiers (pick your budget)
-
-eCash has no native introspection opcodes, so the quine implements self-replication with the OP_CHECKSIG plus OP_CHECKDATASIG preimage technique, which already consumes most of the unlocking-script budget. UML therefore adds as close to zero Script as possible.
-
-**Tier 0, always on, near-zero marginal Script cost. Commitment.**
-`MemoryHeader` sits inside `S'`, covered by the signature the quine already produces. Result: every memory root is consensus-anchored, ordered, immutable, and Avalanche-final within seconds. Tampering is detectable by replay. This is the irreducible tie and it costs nothing beyond what the quine already pays.
-
-**Tier 1, optional, roughly 10 to 20 bytes of ops. Capacity and monotonicity.**
-Add Script that extracts `gen` and `core_count` from the committed state and asserts `gen' == gen + 1` and `core_count' <= K`. These are integer comparisons, trivial since the 2025-11-15 upgrade enabled 64-bit integers in Script. This buys an on-chain guarantee that the working set never exceeds budget, without anyone having to replay. Recommended on. The cost is small and the guarantee is exactly the "context never overflows" property the whole layer exists to provide.
-
-**Tier 2, not recommended. Root recomputation in Script.**
-Verifying `core_root' == SHA256(sorted core)` on-chain is possible with OP_CAT but exceeds the byte budget for any useful K. Do not do this. Replay covers it for free.
-
-### 8.3 What the quine spec must expose
-
-So this drops in cleanly when the quine is built:
-
-1. `S` layout with `MemoryHeader` as a contiguous tail field.
-2. The commitment mechanism for `S'` (whether `S'` is committed via a state push in the next redeem script or via an OP_RETURN the covenant binds). UML is agnostic, it requires only that the commitment covers `MemoryHeader`.
-3. A hook point in the covenant where the Tier 1 predicate fragment can be inserted.
+- **The runner is disposable. The agent is not.** Kill the runner, lose the laptop, the server dies. The team's whole memory is on the chain as coins. Point a fresh runner at the same addresses and it wakes up exactly where it left off.
+- **Its mind is a public query.** Anyone can list the agent's live coins and see exactly what it remembers right now, and read the chain to see how it got there. No trust required.
+- **One auditable record of who steered and when.** Replay the chain and watch the human's pins shape the agent, turn by turn, all signed and timestamped. A repeated mistake and a repeated correction are right there.
+- **Nobody can quietly tamper with it.** Every change is a signed transaction. If two runners ever conflict, Avalanche decides which is real, in seconds.
 
 ---
 
-## 9. Integrity and threat model
+## Two tips
 
-Memory poisoning is a documented, current attack class: query-only injection (Dong et al. 2025), environment-injected trajectory poisoning (Zou et al. 2026), and contamination that propagates through shared memory stores in multi-agent settings (arXiv:2604.16548). UML's anchoring gives properties that vector-database memory layers structurally lack.
+**When a memory will not fit on one coin.** Mint the coin with a pointer instead of the text: a short tag plus the transaction id where the full content was written once. To read it back, jump straight to that transaction. The coin stays tiny and the content can be any size. Carry the pointer, let the chain be the storage room.
 
-- **Tamper-evidence.** Every root is signed and immutable. You cannot silently rewrite a past memory. A typical vector store can be edited with no trace, which is precisely the surface progressive-corruption attacks exploit.
-- **Attributable, ordered writes.** Every mutation is a signed, timestamped, Avalanche-final transaction by the pinned key. Per-memory provenance is free.
-- **Fork resolution.** An attacker trying to rewrite history double-spends the quine UTXO, which is exactly the conflict Avalanche pre-consensus resolves. The canonical memory line is the finalized one.
-
-Boundary, stated plainly. UML does not prevent a poisoned write. A compromised agent can sign a bad memory, and the chain will faithfully record it. What UML guarantees is that the bad memory is auditable, attributable, and non-repudiable, and that it cannot be retroactively hidden. Detection and write-time filtering remain an off-chain responsibility.
-
----
-
-## 10. Transaction layout
-
-One transaction per generation.
-
-```
-Inputs
-  [0] current quine UTXO            (carries old state S, satisfied by the agent signature)
-  [1..] recall-tier cell UTXOs being evicted this generation   (optional)
-
-Outputs
-  [0] next quine UTXO               (same genome, new state S', dust + carry)
-  [1] OP_RETURN / eMPP payload:
-        UML_MAGIC
-        OpBatch                     (the memory ops, content by hash)
-        commitment to S'            (per the quine commitment scheme)
-```
-
-The authorizing signature is in input [0]'s unlocking script and covers `S'`, which contains `MemoryHeader`, which contains the roots. That is the tie, expressed in bytes.
-
----
-
-## 11. Replay and retrieval
-
-- Subscribe Chronik to the quine's script. Each generation transaction yields the OpBatch, the committed `S'`, and the signature, pushed in real time over WebSocket.
-- **Reconstruct memory at generation G.** Start from the genesis header, apply OpBatches 0 through G, recomputing `core_root` and `archive_root` at each step, and compare against the on-chain signed headers. Any mismatch flags tampering or a bug, localized to one generation. Replay is O(total ops) once, then incremental.
-- **Retrieve a cell.** From `cell_hash`, fetch the cell struct and body from the off-chain store, verify the SHA-256 matches. For archived cells, the EVICT record in some generation's OpBatch proves the archival and the generation it happened at.
-
----
-
-## 12. Parameters (defaults)
-
-| Parameter | Default | Notes |
-|-----------|---------|-------|
-| K, core capacity | 32 cells | tune to context budget |
-| Cell body | off-chain, content-addressed | sha256 or blake3 |
-| On-chain footprint per cell | 0 bytes in state | 32 bytes per op record when touched |
-| Archive accumulator | hash chain | switch to MMR via `flags.MMR` when inclusion proofs are needed |
-| Consolidation cadence | every 50 to 200 gens, or on saturation | practitioner range |
-| Scoring weights w_r, w_i, w_l | 0.4, 0.3, 0.3 | recency, importance, relevance |
-| Tier 1 capacity enforcement | on | cheap, recommended |
-
----
-
-## 13. Open decisions
-
-1. **Body store.** IPFS, your own blob store, or inline in OP_RETURN. Inline only for bodies under roughly 100 bytes, accepting the on-chain cost.
-2. **Typed cells via ALP, or plain UTXO plus OP_RETURN log.** ALP gives typed, transferable memory cells and multi-cell operations per transaction, at the cost of token-protocol overhead and a token-lifetime caveat worth verifying before relying on tokens for long-lived state. For a pure memory layer, plain UTXO plus an OP_RETURN op-log is leaner. Use ALP only if memories should be first-class transferable tokens.
-3. **MMR now or later.** Ship the hash chain. Add the MMR the first time a third party needs an inclusion proof without replay.
-4. **Where S' is committed.** State-push in the next redeem script versus OP_RETURN binding. Decide jointly with the quine spec, since it changes the self-replication check.
-
----
-
-## References
-
-- Packer, C., Fang, V., Patil, S. G., Lin, K., Wooders, S., Gonzalez, J. E. (2023). MemGPT: Towards LLMs as Operating Systems. arXiv:2310.08560.
-- Chhikara, P., et al. (2025). Mem0: Building Production-Ready AI Agents with Scalable Long-Term Memory. arXiv:2504.19413 (ECAI 2025).
-- Rethinking Memory in LLM-based Agents: Representations, Operations, and Emerging Topics. (2025). arXiv:2505.00675. Source of the six-operation decomposition.
-- Park, J. S., et al. (2023). Generative Agents: Interactive Simulacra of Human Behavior. arXiv:2304.03442. Source of the recency, importance, relevance retrieval triad.
-- Xu, W., Liang, Z., Mei, K., Gao, H., Tan, J., Zhang, Y. (2025). A-MEM: Agentic Memory for LLM Agents. arXiv:2502. Self-organizing, link-forming memory.
-- Episodic Memory is the Missing Piece for Long-Term LLM Agents. (2025). arXiv:2502.06975. Five properties of episodic memory.
-- A Survey on the Security of Long-Term Memory in LLM Agents: Toward Mnemonic Sovereignty. (2026). arXiv:2604.16548. Poisoning and contamination threat model.
-- Agent memory survey. (2025). arXiv:2512.13564. Consolidation pathways and catastrophic-forgetting risk.
-- Benchmarks for evaluation: LoCoMo (long conversational memory), LongMemEval, BEAM (1M and 10M token scales).
+**Keep the human pins few and durable.** The point of the small working set was that context cannot grow forever. Pins are a separate layer with the same discipline. Few, durable, retire the stale ones. If the human glues long messages to the corner, you have rebuilt the unbounded-context problem with two keys and extra steps.
