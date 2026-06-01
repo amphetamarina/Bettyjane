@@ -24,6 +24,17 @@
           }
         ]
       }
+    ],
+    "StopFailure": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bun \"$CLAUDE_PROJECT_DIR/hooks/capture.ts\"",
+            "timeout": 60
+          }
+        ]
+      }
     ]
   }
 }
