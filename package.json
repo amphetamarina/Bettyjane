@@ -1,0 +1,20 @@
+{
+  "name": "bettyjane",
+  "version": "0.1.0",
+  "description": "Persistent, public, tamper-evident memory for a human-plus-agent team, stored as dust coins on eCash (XEC).",
+  "type": "module",
+  "module": "src/index.ts",
+  "license": "MIT",
+  "scripts": {
+    "test": "bun test",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "chronik-client": "^3.0.0",
+    "ecash-lib": "^4.12.0"
+  },
+  "devDependencies": {
+    "@types/bun": "^1.2.0",
+    "typescript": "^5.6.0"
+  }
+}
