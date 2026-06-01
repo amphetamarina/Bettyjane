@@ -54,6 +54,21 @@ It prints the memo coin outpoint (`txid:1`), whether the coin is still live (uns
 
 More commands (`mint`, address scanning, etc.) will grow into the full bootstrap CLI.
 
+## Explorer (web)
+
+A tiny, dependency-free web view of the live memory at an address — durable
+human pins and working agent memories, formatted for a human reader. It is
+read-only.
+
+```bash
+bun run watch <address> --network mainnet
+```
+
+This serves a local page (default `http://localhost:4173`) that polls the chain
+and renders every unspent memo coin as a card: kind, author, live/pending state,
+content, the coin outpoint, and a link to the block explorer. See
+[`explorer/`](explorer) for details.
+
 ## Library usage
 
 Lighting the pilot light: derive the wallet, fund the human's pin address, then

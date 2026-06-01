@@ -7,7 +7,8 @@
   "license": "MIT",
   "scripts": {
     "test": "bun test",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "watch": "bun explorer/server.ts"
   },
   "dependencies": {
     "chronik-client": "^3.0.0",
