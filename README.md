@@ -122,11 +122,21 @@ the loop also recycles funds by sweeping each forgotten coin's value back to the
 address. See [docs/testnet-and-e2e.md](docs/testnet-and-e2e.md) for the full
 funding and CI story.
 
+## Claude Code hooks
+
+Drive Bettyjane straight from Claude Code with no custom runner: a SessionStart
+hook loads the team's memory into context, and an opt-in Stop hook remembers each
+turn on chain. Configure your wallet with `BJ_MNEMONIC` / `BJ_NETWORK`, enable
+writes with `BJ_CAPTURE=1`, and watch memories land. See
+[hooks/README.md](hooks/README.md) — including the mainnet "real, public, and
+permanent" warning.
+
 ## Project layout
 
 ```
 bin/                CLI entrypoints (bj — the litcli-style inspector)
 examples/           runnable testnet scripts (the agent-verb loop)
+hooks/              Claude Code hooks (load on SessionStart, capture on Stop)
 src/
   domain/           pure, chain-agnostic memory model (memo, author, funding)
   infrastructure/
