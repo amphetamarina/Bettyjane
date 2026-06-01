@@ -7,8 +7,11 @@ new memories land on chain as it works.
 - **`load.ts`** — runs on **SessionStart**. Reads the live coins (the human's
   durable pins and the agent's working memories) and prints them, so Claude
   starts the session with the team's memory in context. Read-only.
-- **`capture.ts`** — runs on **Stop** (turn end). Distills the last thing you
-  asked into one line and mints it as an agent memory coin. **Opt-in.**
+- **`capture.ts`** — runs on **Stop** and **StopFailure** (turn end, including
+  dead ends). Distills the last thing you asked into one line and mints it as an
+  agent memory coin. Harness-injected content (skill banners, image notes) wears
+  the user role but is ignored, so only what you actually typed is captured.
+  **Opt-in.**
 - **`distill.ts`** — the pure turn → one-line-memory logic (unit-tested).
 
 The wiring lives in [`.claude/settings.json`](../.claude/settings.json). Claude
