@@ -14,7 +14,7 @@ import { parseCoinId } from "../../domain/coin-id";
 import { chunkText } from "../../domain/chunking";
 import type { Signer } from "./wallet";
 import { encodeMemo } from "./memo-codec";
-import { DUST_SATS, MAX_PAYLOAD_BYTES } from "./protocol";
+import { DUST_SATS, MAX_PAYLOAD_BYTES, MAX_POINTER_CHUNKS, TXID_BYTES } from "./protocol";
 import { MemoTooLargeError } from "./errors";
 import { networkConfig, type Network, type NetworkConfig } from "./network";
 
@@ -35,11 +35,6 @@ import { networkConfig, type Network, type NetworkConfig } from "./network";
 /** Where the OP_RETURN sits, the memo coin right after it, change last. */
 const OP_RETURN_VOUT = 0;
 const MEMO_COIN_VOUT = 1;
-
-/** A txid is 32 bytes; a pointer payload is a run of them naming the chunks. */
-const TXID_BYTES = 32;
-/** How many chunk txids fit in one pointer payload, hence the longest memory. */
-const MAX_POINTER_CHUNKS = Math.floor(MAX_PAYLOAD_BYTES / TXID_BYTES);
 
 /** A spendable output the minter may consume to pay for a write. */
 export interface SpendableCoin {

@@ -59,7 +59,15 @@ export type { LiveCoin, MemoCoinSource, UnspentCoin } from "./infrastructure/eca
 export { MemoReader } from "./infrastructure/ecash/reader";
 
 export { decodeMemo, encodeMemo, isMemoScript } from "./infrastructure/ecash/memo-codec";
-export { DUST_SATS, LOKAD_ID, MAX_PAYLOAD_BYTES, PROTOCOL_VERSION } from "./infrastructure/ecash/protocol";
+export {
+  DUST_SATS,
+  LOKAD_ID,
+  MAX_MEMORY_BYTES,
+  MAX_PAYLOAD_BYTES,
+  MAX_POINTER_CHUNKS,
+  PROTOCOL_VERSION,
+  TXID_BYTES,
+} from "./infrastructure/ecash/protocol";
 export {
   MalformedMemoError,
   MemoCodecError,
