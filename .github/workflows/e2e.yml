@@ -1,23 +1,31 @@
-name: E2E (testnet)
+name: E2E (regtest)
 
-# Live end-to-end run against eCash testnet. Kept off the per-PR path to avoid
-# live-network flakiness and faucet pressure: it runs on a weekly schedule and
-# on manual dispatch. The main CI workflow stays hermetic.
+# End-to-end run against a private regtest chain with an in-node Chronik. Coins
+# are generated on demand, so there is no faucet and no secret to manage. Kept
+# separate from the hermetic main CI because it downloads and runs a full node;
+# it runs on pushes to main and on manual dispatch.
 on:
   workflow_dispatch:
-  schedule:
-    - cron: "0 6 * * 1"
+  push:
+    branches: [main]
 
 concurrency:
   group: e2e-${{ github.ref }}
   cancel-in-progress: true
 
+env:
+  ABC_VERSION: "0.32.8"
+  RPC_ARGS: "-regtest -rpcuser=bj -rpcpassword=bj -rpcport=18443"
+  BJ_NETWORK: regtest
+  BJ_CHRONIK_URL: http://127.0.0.1:8331
+  # A throwaway BIP-39 phrase. Regtest coins are generated locally and worthless,
+  # so this is not a secret.
+  BJ_MNEMONIC: "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about"
+
 jobs:
   e2e:
-    name: Live testnet e2e
+    name: Regtest e2e
     runs-on: ubuntu-latest
-    # Only on the canonical repo, where the funded testnet secret exists.
-    if: github.repository_owner == 'amphetamarina'
     steps:
       - uses: actions/checkout@v4
 
@@ -29,20 +37,41 @@ jobs:
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
-      # Fail loudly instead of silently skipping when the wallet secret is absent.
-      - name: Require funding secret
-        env:
-          BJ_MNEMONIC: ${{ secrets.BJ_MNEMONIC }}
+      - name: Download Bitcoin ABC
         run: |
-          if [ -z "$BJ_MNEMONIC" ]; then
-            echo "BJ_MNEMONIC secret is not set; the e2e suite would skip." >&2
-            echo "Configure a funded testnet wallet secret to run it." >&2
-            exit 1
-          fi
+          curl -sSL -o abc.tar.gz \
+            "https://download.bitcoinabc.org/${ABC_VERSION}/linux/bitcoin-abc-${ABC_VERSION}-x86_64-linux-gnu.tar.gz"
+          tar xf abc.tar.gz
+          echo "$PWD/bitcoin-abc-${ABC_VERSION}/bin" >> "$GITHUB_PATH"
+
+      - name: Start regtest node with Chronik
+        run: |
+          DATADIR="$PWD/.regtest"
+          mkdir -p "$DATADIR"
+          echo "DATADIR=$DATADIR" >> "$GITHUB_ENV"
+          bitcoind $RPC_ARGS -datadir="$DATADIR" -daemon \
+            -chronik -chronikbind=127.0.0.1:8331 -fallbackfee=0.00001
+          for _ in $(seq 1 60); do
+            if bitcoin-cli $RPC_ARGS -datadir="$DATADIR" getblockchaininfo >/dev/null 2>&1; then
+              echo "node is up"
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "node did not come up in time" >&2
+          exit 1
+
+      - name: Fund the agent address
+        run: |
+          ADDR="$(bun test/e2e/print-address.ts)"
+          echo "agent address: $ADDR"
+          # 200 blocks so the first ~100 coinbases mature (maturity is 100 blocks).
+          bitcoin-cli $RPC_ARGS -datadir="$DATADIR" generatetoaddress 200 "$ADDR" >/dev/null
+          echo "tip height: $(bitcoin-cli $RPC_ARGS -datadir="$DATADIR" getblockcount)"
 
       - name: Run e2e
-        env:
-          BJ_MNEMONIC: ${{ secrets.BJ_MNEMONIC }}
-          BJ_PASSPHRASE: ${{ secrets.BJ_PASSPHRASE }}
-          BJ_NETWORK: testnet
         run: bun test test/e2e
+
+      - name: Node log tail (on failure)
+        if: failure()
+        run: tail -n 100 "$DATADIR/regtest/debug.log" || true
