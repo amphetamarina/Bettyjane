@@ -8,11 +8,15 @@
  * back to the same address, so the funds recycle across runs (only network fees
  * are spent).
  *
- * Funding is a manual step. The public testnet faucet
- * (https://faucet.fabien.cash/) is browser-only and frequently drained, and the
- * official cashtab-faucet is reCAPTCHA-gated, so neither can be driven
- * headlessly. Open the faucet (or send from your own testnet wallet) to the
- * address printed below; this script then waits for the coins to arrive.
+ * It honors BJ_NETWORK (default testnet) and an optional BJ_CHRONIK_URL, so it
+ * can run against a local regtest node as well as testnet.
+ *
+ * Funding is a manual step on testnet. The public faucet is browser-only and
+ * frequently down, and the official cashtab-faucet is reCAPTCHA-gated, so
+ * neither can be driven headlessly. Send testnet XEC (from a faucet or your own
+ * wallet) to the address printed below; this script then waits for it to arrive.
+ * For a self-contained run with no faucet, point it at a regtest node and
+ * generate coins to the address yourself (see docs/testnet-and-e2e.md).
  *
  * Usage:
  *   BJ_MNEMONIC="twelve word phrase ..." bun examples/full-loop.ts
@@ -24,17 +28,25 @@ import {
   MEMO_COIN_VOUT,
   MemoReader,
   Minter,
+  type Network,
+  type NetworkConfig,
   Wallet,
   coinId,
   generateMnemonic,
   loadWallet,
+  networkConfig,
   type LiveCoin,
 } from "../src/index";
 
-const NETWORK = "testnet";
+const NETWORK = (process.env.BJ_NETWORK as Network) || "testnet";
 const FAUCET_URL = "https://faucet.fabien.cash/";
 const MINIMUM_SATS = 10_000n;
 const FUNDING_TIMEOUT_MS = 10 * 60 * 1000;
+
+function resolveConfig(): NetworkConfig {
+  const url = process.env.BJ_CHRONIK_URL;
+  return url ? networkConfig(NETWORK, { chronikUrls: [url] }) : networkConfig(NETWORK);
+}
 
 function resolveWallet(): Wallet {
   if (process.env.BJ_MNEMONIC) return loadWallet({ ...process.env, BJ_NETWORK: NETWORK });
@@ -42,7 +54,7 @@ function resolveWallet(): Wallet {
   console.log("No BJ_MNEMONIC set; generated a throwaway wallet.");
   console.log("Save this phrase to reuse its funds on the next run:");
   console.log(`  ${mnemonic}\n`);
-  return Wallet.fromMnemonic(mnemonic, { prefix: "ectest" });
+  return Wallet.fromMnemonic(mnemonic, { prefix: networkConfig(NETWORK).prefix });
 }
 
 function describe(coins: readonly LiveCoin[]): string {
@@ -57,14 +69,16 @@ function describe(coins: readonly LiveCoin[]): string {
 }
 
 async function main() {
+  const config = resolveConfig();
   const wallet = resolveWallet();
   const agent = wallet.signer("agent");
 
-  console.log(`Fund the agent address with testnet XEC (>= ${MINIMUM_SATS} sats):`);
+  console.log(`Fund the ${NETWORK} agent address (>= ${MINIMUM_SATS} sats):`);
   console.log(`  ${agent.address}`);
-  console.log(`Faucet: ${FAUCET_URL}\n`);
+  if (NETWORK === "testnet") console.log(`Faucet (often down): ${FAUCET_URL}`);
+  console.log("");
 
-  const chronik = ChronikGateway.fromNetwork(NETWORK);
+  const chronik = ChronikGateway.fromNetwork(config);
   console.log("Waiting for funding...");
   const status = await chronik.awaitFunding(
     agent.address,
@@ -73,8 +87,8 @@ async function main() {
   );
   console.log(`Funded: ${status.totalSats} sats seen.\n`);
 
-  const minter = Minter.fromNetwork(NETWORK);
-  const reader = MemoReader.fromNetwork(NETWORK);
+  const minter = Minter.fromNetwork(config);
+  const reader = MemoReader.fromNetwork(config);
 
   const note = `deploys run from CI only (example ${new Date().toISOString()})`;
   console.log(`remember: "${note}"`);

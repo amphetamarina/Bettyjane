@@ -20,23 +20,29 @@ BJ_MNEMONIC="twelve word phrase ..." bun examples/full-loop.ts
 bun examples/full-loop.ts
 ```
 
-## Funding (manual)
+## Funding
 
-The script waits for funding; you supply it out of band. There is no headless
-auto-funding:
+The script honors `BJ_NETWORK` (default testnet) and `BJ_CHRONIK_URL`, so you can
+fund it two ways.
 
-- The public testnet faucet <https://faucet.fabien.cash/> is browser-only and is
-  frequently drained (it asks that unused coins be returned to its address).
-- The official [`cashtab-faucet`](https://github.com/Bitcoin-ABC/bitcoin-abc/tree/master/apps/cashtab-faucet)
-  is reCAPTCHA-gated and mainnet-oriented, so it cannot be scripted either.
+### Regtest (recommended, no faucet)
 
-To fund:
+Run a local regtest node and generate coins to the address yourself — fully
+self-contained, no faucet. See
+[docs/testnet-and-e2e.md](../docs/testnet-and-e2e.md) for the node + `BJ_CHRONIK_URL`
+setup, then:
 
-1. Run the script and copy the printed `ectest:` agent address.
-2. Open the faucet in a browser (or send from your own testnet wallet) and send
-   testnet XEC to that address.
-3. The script detects the coins and continues.
+```bash
+BJ_NETWORK=regtest BJ_CHRONIK_URL=http://127.0.0.1:8331 \
+  BJ_MNEMONIC="abandon ... about" bun examples/full-loop.ts
+```
 
-Reuse one funded mnemonic via `BJ_MNEMONIC` so you only top up rarely; the
-recycling loop keeps the balance roughly stable apart from fees. Top up again
-from the faucet when fees have ground the balance down.
+### Testnet (manual, unreliable)
+
+There is no headless auto-funding: the public faucet
+<https://faucet.fabien.cash/> is browser-only and frequently down (not working at
+the time of writing), and the official `cashtab-faucet` is reCAPTCHA-gated and
+mainnet-only. To fund: run the script, copy the printed `ectest:` address, send
+it testnet XEC from your own wallet (or a faucet if one is up), and the script
+detects the coins and continues. Reuse one funded mnemonic via `BJ_MNEMONIC`; the
+recycling loop keeps the balance roughly stable apart from fees.
