@@ -8,7 +8,7 @@ import {
   TxBuilder,
 } from "ecash-lib";
 import { ChronikClient } from "chronik-client";
-import type { Memo } from "../../domain/memo";
+import { memory, text, type Memo } from "../../domain/memo";
 import type { Signer } from "./wallet";
 import { encodeMemo } from "./memo-codec";
 import { DUST_SATS } from "./protocol";
@@ -138,6 +138,16 @@ export class Minter {
     const rawTx = tx.ser();
     const { txid } = await this.broadcaster.broadcast(rawTx);
     return { txid, rawTx, memo };
+  }
+
+  /**
+   * Remember a note: mint a memory-kind coin carrying `value` as text. The
+   * agent's write verb — the mirror of {@link Minter.spend}, which forgets. The
+   * coin is laid down at the signer's own address, so a remembered note is held
+   * by the same key that can later forget it.
+   */
+  async remember(value: string, signer: Signer): Promise<MintResult> {
+    return this.mint(memory(text(value)), signer);
   }
 
   /**
