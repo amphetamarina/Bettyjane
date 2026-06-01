@@ -16,22 +16,26 @@ The [`E2E (regtest)`](../.github/workflows/e2e.yml) workflow downloads Bitcoin
 ABC, starts a regtest node with in-node Chronik, generates blocks to the agent
 address so the coinbases mature, then runs the e2e suite against the local
 Chronik. Coins are generated locally and worthless, so the wallet phrase is a
-throwaway constant and there is no secret to manage. It runs on pushes to `main`
-and on manual dispatch.
+throwaway constant and there is no secret to manage. It runs on pull requests,
+pushes to `main`, and manual dispatch.
 
 To run the same thing locally you need the `bitcoind`/`bitcoin-cli` from a
 [Bitcoin ABC release](https://www.bitcoinabc.org/) on your PATH:
 
 ```bash
 # 1. Start a regtest node with Chronik bound to 127.0.0.1:8331
-bitcoind -regtest -datadir=/tmp/bj-regtest -daemon \
-  -chronik -chronikbind=127.0.0.1:8331 -rpcuser=bj -rpcpassword=bj -rpcport=18443
+RPC="-regtest -rpcuser=bj -rpcpassword=bj -rpcport=18443"
+bitcoind $RPC -datadir=/tmp/bj-regtest -daemon -chronik -chronikbind=127.0.0.1:8331
 
-# 2. Derive the agent address and generate coins to it (200 blocks > 100 maturity)
+# 2. Fund the agent. Coinbases mature after 100 blocks and the Minter spends all
+#    of an address's coins at once, so generate the agent's coins, then mine 100
+#    more to a different address so every agent coin is mature.
 export BJ_NETWORK=regtest
 export BJ_MNEMONIC="abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about"
-ADDR="$(bun test/e2e/print-address.ts)"
-bitcoin-cli -regtest -rpcuser=bj -rpcpassword=bj -rpcport=18443 generatetoaddress 200 "$ADDR"
+AGENT="$(bun test/e2e/print-address.ts agent)"
+PAD="$(bun test/e2e/print-address.ts human)"
+bitcoin-cli $RPC generatetoaddress 2 "$AGENT"
+bitcoin-cli $RPC generatetoaddress 100 "$PAD"
 
 # 3. Run the e2e suite against the local Chronik
 BJ_CHRONIK_URL=http://127.0.0.1:8331 mise run test-e2e
@@ -90,5 +94,7 @@ waits for funding before minting so it does not race Chronik indexing.
 - The main [`CI`](../.github/workflows/ci.yml) workflow runs `bun test` on every
   push and pull request and stays hermetic — it never runs the e2e suite.
 - The [`E2E (regtest)`](../.github/workflows/e2e.yml) workflow runs the live suite
-  against a regtest node on pushes to `main` and on manual dispatch, kept off the
-  per-PR path because it downloads and runs a full node.
+  against a regtest node on pull requests, pushes to `main`, and manual dispatch,
+  so a regression blocks the merge. It needs no faucet and no secret. The
+  downloaded Bitcoin ABC node and the bun cache are cached across runs to keep it
+  fast; bump `ABC_VERSION` in the workflow to track a newer release.
