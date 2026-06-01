@@ -13,6 +13,8 @@ import {
   type SpendableCoin,
   Wallet,
   decodeMemo,
+  EmptyMemoError,
+  memory,
   pin,
   text,
 } from "../src/index";
@@ -102,6 +104,38 @@ describe("Minter.mint", () => {
     await expect(minter.mint(pin(text("name")), SIGNER)).rejects.toBeInstanceOf(
       InsufficientFundsError,
     );
+  });
+});
+
+describe("Minter.remember", () => {
+  test("mints a memory-kind coin carrying the given text", async () => {
+    const { minter, broadcasts } = harness([coin(10_000n)]);
+
+    const result = await minter.remember("deploys run from CI only", SIGNER);
+
+    expect(broadcasts).toHaveLength(1);
+    expect(result.memo).toEqual(memory(text("deploys run from CI only")));
+    const tx = Tx.deser(result.rawTx);
+    expect(decodeMemo(tx.outputs[OP_RETURN_VOUT]!.script)).toEqual(
+      memory(text("deploys run from CI only")),
+    );
+  });
+
+  test("lays down the memory as a dust coin at the signer's address", async () => {
+    const { minter } = harness([coin(10_000n)]);
+
+    const { rawTx } = await minter.remember("prefer bun over npm", SIGNER);
+
+    const memoCoin = Tx.deser(rawTx).outputs[MEMO_COIN_VOUT]!;
+    expect(memoCoin.sats).toBe(DUST_SATS);
+    expect(memoCoin.script.bytecode).toEqual(OWNER_SCRIPT);
+  });
+
+  test("rejects empty text without broadcasting", async () => {
+    const { minter, broadcasts } = harness([coin(10_000n)]);
+
+    await expect(minter.remember("", SIGNER)).rejects.toBeInstanceOf(EmptyMemoError);
+    expect(broadcasts).toHaveLength(0);
   });
 });
 
