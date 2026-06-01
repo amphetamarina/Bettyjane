@@ -1,0 +1,29 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "startup",
+        "hooks": [{ "type": "command", "command": "bun \"$CLAUDE_PROJECT_DIR/hooks/load.ts\"" }]
+      },
+      {
+        "matcher": "resume",
+        "hooks": [{ "type": "command", "command": "bun \"$CLAUDE_PROJECT_DIR/hooks/load.ts\"" }]
+      },
+      {
+        "matcher": "clear",
+        "hooks": [{ "type": "command", "command": "bun \"$CLAUDE_PROJECT_DIR/hooks/load.ts\"" }]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bun \"$CLAUDE_PROJECT_DIR/hooks/capture.ts\"",
+            "timeout": 60
+          }
+        ]
+      }
+    ]
+  }
+}
