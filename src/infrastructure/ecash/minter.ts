@@ -6,13 +6,16 @@ import {
   P2PKHSignatory,
   Script,
   TxBuilder,
+  fromHex,
 } from "ecash-lib";
 import { ChronikClient } from "chronik-client";
-import { memory, text, type Memo } from "../../domain/memo";
+import { memory, pointer, text, type Memo } from "../../domain/memo";
 import { parseCoinId } from "../../domain/coin-id";
+import { chunkText } from "../../domain/chunking";
 import type { Signer } from "./wallet";
 import { encodeMemo } from "./memo-codec";
-import { DUST_SATS } from "./protocol";
+import { DUST_SATS, MAX_PAYLOAD_BYTES } from "./protocol";
+import { MemoTooLargeError } from "./errors";
 import { networkConfig, type Network, type NetworkConfig } from "./network";
 
 /**
@@ -32,6 +35,11 @@ import { networkConfig, type Network, type NetworkConfig } from "./network";
 /** Where the OP_RETURN sits, the memo coin right after it, change last. */
 const OP_RETURN_VOUT = 0;
 const MEMO_COIN_VOUT = 1;
+
+/** A txid is 32 bytes; a pointer payload is a run of them naming the chunks. */
+const TXID_BYTES = 32;
+/** How many chunk txids fit in one pointer payload, hence the longest memory. */
+const MAX_POINTER_CHUNKS = Math.floor(MAX_PAYLOAD_BYTES / TXID_BYTES);
 
 /** A spendable output the minter may consume to pay for a write. */
 export interface SpendableCoin {
@@ -122,13 +130,7 @@ export class Minter {
     const funding = await this.fundingCoins(signer.address);
 
     const tx = new TxBuilder({
-      inputs: funding.map((coin) => ({
-        input: {
-          prevOut: coin.outpoint,
-          signData: { sats: coin.sats, outputScript: ownerScript },
-        },
-        signatory: P2PKHSignatory(signer.seckey, signer.pubkey, ALL_BIP143),
-      })),
+      inputs: this.signedInputs(funding, signer, ownerScript),
       outputs: [
         { sats: 0n, script: encodeMemo(memo) }, // OP_RETURN_VOUT: the memo text
         { sats: DUST_SATS, script: ownerScript }, // MEMO_COIN_VOUT: the memory
@@ -142,13 +144,57 @@ export class Minter {
   }
 
   /**
-   * Remember a note: mint a memory-kind coin carrying `value` as text. The
-   * agent's write verb — the mirror of {@link Minter.spend}, which forgets. The
-   * coin is laid down at the signer's own address, so a remembered note is held
-   * by the same key that can later forget it.
+   * Mint a memo as pure data: an OP_RETURN with change only, no dust memo coin.
+   * Used for the chunks a large memory is split across — each chunk carries text
+   * but is not itself a live memory coin, so it never appears in the live set.
+   * The pointer coin that names the chunks (see {@link Minter.remember}) is the
+   * memory; the chunk text stays retrievable from the chain by txid forever.
+   */
+  async mintData(memo: Memo, signer: Signer): Promise<MintResult> {
+    const ownerScript = Address.fromCashAddress(signer.address).toScript();
+    const funding = await this.fundingCoins(signer.address);
+
+    const tx = new TxBuilder({
+      inputs: this.signedInputs(funding, signer, ownerScript),
+      outputs: [
+        { sats: 0n, script: encodeMemo(memo) }, // OP_RETURN: the chunk text
+        ownerScript, // change; no dust coin, so this tx adds nothing to the live set
+      ],
+    }).sign({ ecc: this.ecc, feePerKb: this.feePerKb, dustSats: DUST_SATS });
+
+    const rawTx = tx.ser();
+    const { txid } = await this.broadcaster.broadcast(rawTx);
+    return { txid, rawTx, memo };
+  }
+
+  /**
+   * Remember a note: mint a memory-kind coin carrying `value`. The agent's write
+   * verb — the mirror of {@link Minter.spend}, which forgets. The coin is laid
+   * down at the signer's own address, so a remembered note is held by the same
+   * key that can later forget it.
+   *
+   * A note that fits one OP_RETURN is stored inline as text. A longer one is
+   * split into chunk transactions (see {@link Minter.mintData}) and the memory
+   * coin becomes a pointer naming those chunks in order; the reader rejoins them.
+   * A note too long even for the pointer's chunk capacity is rejected.
    */
   async remember(value: string, signer: Signer): Promise<MintResult> {
-    return this.mint(memory(text(value)), signer);
+    if (Buffer.byteLength(value, "utf8") <= MAX_PAYLOAD_BYTES) {
+      return this.mint(memory(text(value)), signer);
+    }
+    const chunks = chunkText(value, MAX_PAYLOAD_BYTES);
+    if (chunks.length > MAX_POINTER_CHUNKS) {
+      throw new MemoTooLargeError(
+        Buffer.byteLength(value, "utf8"),
+        MAX_POINTER_CHUNKS * MAX_PAYLOAD_BYTES,
+      );
+    }
+    const txids: string[] = [];
+    for (const chunk of chunks) {
+      const { txid } = await this.mintData(memory(text(chunk)), signer);
+      txids.push(txid);
+    }
+    return this.mint(memory(pointer(concatTxids(txids))), signer);
   }
 
   /**
@@ -192,19 +238,23 @@ export class Minter {
     const funding = this.selectFunding(coins, signer.address, target);
 
     const tx = new TxBuilder({
-      inputs: [target, ...funding].map((coin) => ({
-        input: {
-          prevOut: coin.outpoint,
-          signData: { sats: coin.sats, outputScript: ownerScript },
-        },
-        signatory: P2PKHSignatory(signer.seckey, signer.pubkey, ALL_BIP143),
-      })),
+      inputs: this.signedInputs([target, ...funding], signer, ownerScript),
       outputs: [ownerScript], // the reclaimed value, swept back as funding
     }).sign({ ecc: this.ecc, feePerKb: this.feePerKb, dustSats: DUST_SATS });
 
     const rawTx = tx.ser();
     const { txid } = await this.broadcaster.broadcast(rawTx);
     return { txid, rawTx, outpoint };
+  }
+
+  private signedInputs(coins: readonly SpendableCoin[], signer: Signer, ownerScript: Script) {
+    return coins.map((coin) => ({
+      input: {
+        prevOut: coin.outpoint,
+        signData: { sats: coin.sats, outputScript: ownerScript },
+      },
+      signatory: P2PKHSignatory(signer.seckey, signer.pubkey, ALL_BIP143),
+    }));
   }
 
   private async fundingCoins(address: string): Promise<SpendableCoin[]> {
@@ -231,6 +281,13 @@ function sameOutpoint(
   b: { readonly txid: string; readonly outIdx: number },
 ): boolean {
   return a.txid === b.txid && a.outIdx === b.outIdx;
+}
+
+/** Pack chunk txids into one pointer payload: each txid as its 32 raw bytes, in order. */
+function concatTxids(txids: readonly string[]): Uint8Array {
+  const bytes = new Uint8Array(txids.length * TXID_BYTES);
+  txids.forEach((txid, i) => bytes.set(fromHex(txid), i * TXID_BYTES));
+  return bytes;
 }
 
 export { MEMO_COIN_VOUT, OP_RETURN_VOUT };
