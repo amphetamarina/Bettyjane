@@ -1,7 +1,8 @@
 /**
- * Pure helpers for turning a Claude Code transcript into a one-line memory.
- * Kept free of I/O and chain code so the distillation rules are unit-testable;
- * the capture hook reads the transcript file and feeds its lines here.
+ * Pure helpers for model-based capture: rendering the latest transcript turn as
+ * text for a distiller, and reading the distiller's reply back into notes. Kept
+ * free of I/O and chain code so the rules are unit-testable; the capture hook
+ * and its worker do the file, subprocess, and chain work around them.
  */
 
 interface ContentBlock {
@@ -117,28 +118,3 @@ export function renderTurn(lines: readonly string[], maxBytes: number): string {
   return truncateToBytes(turn, maxBytes);
 }
 
-/**
- * The team's working memory of a turn: the last thing the human actually asked,
- * as a single trimmed line within the on-chain byte budget. Assistant messages
- * and tool-result user messages carry no human ask and are skipped, as are
- * isMeta entries — skill banners and harness-injected notes that wear the user
- * role without the human having typed them. Returns null when the turn holds
- * nothing worth remembering.
- */
-export function distillTurn(lines: readonly string[], maxBytes: number): string | null {
-  let memory: string | null = null;
-  for (const raw of lines) {
-    let entry: TranscriptEntry;
-    try {
-      entry = JSON.parse(raw);
-    } catch {
-      continue;
-    }
-    if (entry.isMeta) continue;
-    if ((entry.message?.role ?? entry.role) !== "user") continue;
-    const text = extractText(entry.message?.content ?? entry.content).trim();
-    const firstLine = (text.split("\n")[0] ?? "").trim();
-    if (firstLine) memory = firstLine;
-  }
-  return memory === null ? null : truncateToBytes(memory, maxBytes);
-}
