@@ -10,6 +10,9 @@ export { HashEmbedder, hashEmbed } from "./domain/hash-embedder";
 export type { IndexEntry, RelevanceQuery } from "./domain/retrieval";
 export { DEFAULT_MAX_WORKING, buildIndex, retrieveRelevant } from "./domain/retrieval";
 
+export type { VectoredMemory } from "./domain/consolidate";
+export { planConsolidation } from "./domain/consolidate";
+
 export type {
   LoadMemoryOptions,
   LoadedMemory,
