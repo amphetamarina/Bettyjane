@@ -38,6 +38,17 @@ export interface SigningKey {
   readonly pubkey: Uint8Array;
 }
 
+/**
+ * Everything needed to author a write from one account: where its coins live
+ * and the key that spends them. The union of an {@link Account}'s address and a
+ * {@link SigningKey}, in the shape a minter consumes.
+ */
+export interface Signer {
+  readonly address: string;
+  readonly seckey: Uint8Array;
+  readonly pubkey: Uint8Array;
+}
+
 /** An author's derived account: where its coins live and how to recognize them. */
 export interface Account {
   readonly author: Author;
@@ -92,6 +103,18 @@ export class Wallet {
     const seckey = node.seckey();
     if (!seckey) throw new Error(`no private key for the ${author} account`);
     return { seckey, pubkey: node.pubkey() };
+  }
+
+  /** The author's address and key together, ready to hand to a minter. */
+  signer(author: Author): Signer {
+    const node = this.nodeOf(author);
+    const seckey = node.seckey();
+    if (!seckey) throw new Error(`no private key for the ${author} account`);
+    return {
+      address: Address.p2pkh(node.pkh(), this.prefix).toString(),
+      seckey,
+      pubkey: node.pubkey(),
+    };
   }
 
   private nodeOf(author: Author): HdNode {
