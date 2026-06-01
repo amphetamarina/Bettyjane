@@ -6,6 +6,7 @@ export { InvalidCoinIdError, coinId, parseCoinId } from "./domain/coin-id";
 
 export type { Embedder, ScoredCoin, Vector } from "./domain/embedding-index";
 export { DimensionMismatchError, EmbeddingIndex, cosineSimilarity } from "./domain/embedding-index";
+export { HashEmbedder, hashEmbed } from "./domain/hash-embedder";
 
 export type { Author } from "./domain/author";
 export { AUTHORS, authorOf, kindOf } from "./domain/author";
