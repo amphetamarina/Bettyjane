@@ -76,3 +76,44 @@ describe("EmbeddingIndex store", () => {
     expect(restored.get("b:1")).toEqual([0, 1]);
   });
 });
+
+describe("EmbeddingIndex.nearest", () => {
+  const index = () => {
+    const idx = new EmbeddingIndex();
+    idx.upsert("east:1", [1, 0]);
+    idx.upsert("north:1", [0, 1]);
+    idx.upsert("northeast:1", [1, 1]);
+    return idx;
+  };
+
+  test("returns an empty list for an empty index", () => {
+    expect(new EmbeddingIndex().nearest([1, 0], 3)).toEqual([]);
+  });
+
+  test("returns nothing when k is zero or negative", () => {
+    expect(index().nearest([1, 0], 0)).toEqual([]);
+    expect(index().nearest([1, 0], -1)).toEqual([]);
+  });
+
+  test("ranks coins by descending cosine similarity to the query", () => {
+    const hits = index().nearest([1, 0], 3);
+    expect(hits.map((h) => h.id)).toEqual(["east:1", "northeast:1", "north:1"]);
+    expect(hits[0]!.score).toBeCloseTo(1);
+    expect(hits[2]!.score).toBeCloseTo(0);
+  });
+
+  test("returns at most k hits", () => {
+    expect(index().nearest([1, 0], 2).map((h) => h.id)).toEqual(["east:1", "northeast:1"]);
+  });
+
+  test("returns every coin when k exceeds the index size", () => {
+    expect(index().nearest([1, 0], 99)).toHaveLength(3);
+  });
+
+  test("breaks ties by coin id for a deterministic order", () => {
+    const idx = new EmbeddingIndex();
+    idx.upsert("b:1", [1, 0]);
+    idx.upsert("a:1", [1, 0]);
+    expect(idx.nearest([1, 0], 2).map((h) => h.id)).toEqual(["a:1", "b:1"]);
+  });
+});
