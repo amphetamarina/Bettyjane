@@ -5,11 +5,11 @@
  * are sensible defaults, not law — operators override them per deployment.
  */
 
-export type Network = "mainnet" | "testnet";
+export type Network = "mainnet" | "testnet" | "regtest";
 
 export interface NetworkConfig {
   readonly network: Network;
-  /** Cashaddr prefix for addresses on this network ("ecash" / "ectest"). */
+  /** Cashaddr prefix for addresses on this network ("ecash" / "ectest" / "ecregtest"). */
   readonly prefix: string;
   /** Chronik URLs, most-preferred first; the client fails over in order. */
   readonly chronikUrls: readonly string[];
@@ -25,6 +25,13 @@ const DEFAULTS: Record<Network, NetworkConfig> = {
     network: "testnet",
     prefix: "ectest",
     chronikUrls: ["https://chronik-testnet.fabien.cash"],
+  },
+  // A private chain run on the developer's or CI's own machine; there is no
+  // public endpoint, so the default points at a locally bound in-node Chronik.
+  regtest: {
+    network: "regtest",
+    prefix: "ecregtest",
+    chronikUrls: ["http://127.0.0.1:8331"],
   },
 };
 

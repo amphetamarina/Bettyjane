@@ -12,6 +12,12 @@ describe("networkConfig", () => {
     expect(networkConfig("mainnet").prefix).toBe("ecash");
   });
 
+  test("regtest uses the ecregtest prefix and a local chronik default", () => {
+    const config = networkConfig("regtest");
+    expect(config.prefix).toBe("ecregtest");
+    expect(config.chronikUrls[0]).toMatch(/^http:\/\/127\.0\.0\.1:/);
+  });
+
   test("overrides the Chronik endpoints, leaving the prefix intact", () => {
     const config = networkConfig("testnet", { chronikUrls: ["https://my-chronik.example"] });
     expect(config.chronikUrls).toEqual(["https://my-chronik.example"]);

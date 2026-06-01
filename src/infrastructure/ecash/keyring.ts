@@ -16,12 +16,12 @@ export class MissingMnemonicError extends Error {
 
 export class InvalidNetworkError extends Error {
   constructor(readonly value: string) {
-    super(`${ENV_NETWORK} must be "mainnet" or "testnet", got "${value}"`);
+    super(`${ENV_NETWORK} must be "mainnet", "testnet", or "regtest", got "${value}"`);
     this.name = "InvalidNetworkError";
   }
 }
 
-const NETWORKS: readonly Network[] = ["mainnet", "testnet"];
+const NETWORKS: readonly Network[] = ["mainnet", "testnet", "regtest"];
 
 function parseNetwork(value: string | undefined): Network {
   if (value === undefined || value === "") return DEFAULT_NETWORK;
