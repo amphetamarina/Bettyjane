@@ -15,6 +15,7 @@ export { planConsolidation } from "./domain/consolidate";
 
 export type {
   LoadMemoryOptions,
+  LoadedCoin,
   LoadedMemory,
   MemoryAddresses,
   MemoryOps,

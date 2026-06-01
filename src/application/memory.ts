@@ -34,10 +34,16 @@ export interface LoadMemoryOptions {
   readonly maxWorking?: number;
 }
 
+/** A working-set memory: its coin id (so it can be forgotten) and full text. */
+export interface LoadedCoin {
+  readonly id: string;
+  readonly text: string;
+}
+
 /** The team's current memory as text: durable human pins and the working set. */
 export interface LoadedMemory {
   readonly pins: string[];
-  readonly memories: string[];
+  readonly memories: LoadedCoin[];
 }
 
 /**
@@ -64,7 +70,9 @@ export async function loadMemory(
 
   const [pins, memories] = await Promise.all([
     Promise.all(pinCoins.map((coin) => source.resolveText(coin))),
-    Promise.all(working.map((entry) => source.resolveText(entry.coin))),
+    Promise.all(
+      working.map(async (entry) => ({ id: entry.id, text: await source.resolveText(entry.coin) })),
+    ),
   ]);
   return { pins, memories };
 }
