@@ -18,9 +18,10 @@ The full design and rationale are in [docs/INITIAL_SPEC.md](docs/INITIAL_SPEC.md
 ## Status
 
 Early. The library can derive keys and addresses, observe funding, encode and
-decode the memo format, and mint memo coins. A bootstrap CLI and the agent verbs
-(`remember` / `forget`) are still in progress. There is no published package yet —
-consume it as a library from this repo.
+decode the memo format, and mint memo coins. The first piece of the bootstrap CLI
+(`bj inspect`) has landed; the full agent verbs (`remember` / `forget`) are still
+in progress. There is no published package yet — consume it as a library from this
+repo.
 
 ## Requirements
 
@@ -34,6 +35,22 @@ mise run install    # install dependencies (bun install)
 mise run test       # run the test suite (bun test)
 mise run typecheck  # type-check without emitting
 ```
+
+## Inspector (CLI)
+
+A small `bj` tool (litcli style) for reading what actually landed on chain.
+
+```bash
+# See the decoded pin / memory in any tx
+bun bin/bj.ts inspect a8ef7cba751f22df120e3e8123cdde103303d567cca1fdb71bb6e07750821af7 --network mainnet
+
+# Machine readable (for scripts / agents)
+bun bin/bj.ts inspect <txid> --json
+```
+
+It prints the memo coin outpoint (`txid:1`), whether the coin is still live (unspent), the kind/content, and the raw OP_RETURN for verification. Use `--network testnet` for test coins.
+
+More commands (`mint`, address scanning, etc.) will grow into the full bootstrap CLI.
 
 ## Library usage
 
@@ -77,6 +94,7 @@ The public API is re-exported from [`src/index.ts`](src/index.ts).
 ## Project layout
 
 ```
+bin/                CLI entrypoints (bj — the litcli-style inspector)
 src/
   domain/           pure, chain-agnostic memory model (memo, author, funding)
   infrastructure/
