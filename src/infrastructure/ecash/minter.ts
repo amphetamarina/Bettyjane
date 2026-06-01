@@ -9,7 +9,7 @@ import {
   fromHex,
 } from "ecash-lib";
 import { ChronikClient } from "chronik-client";
-import { memory, pointer, text, type Memo } from "../../domain/memo";
+import { memory, pin, pointer, text, type Memo, type MemoContent, type MemoKind } from "../../domain/memo";
 import { parseCoinId } from "../../domain/coin-id";
 import { chunkText } from "../../domain/chunking";
 import type { Signer } from "./wallet";
@@ -174,8 +174,33 @@ export class Minter {
    * A note too long even for the pointer's chunk capacity is rejected.
    */
   async remember(value: string, signer: Signer): Promise<MintResult> {
+    return this.writeText("memory", value, signer);
+  }
+
+  /**
+   * Pin a durable note: mint a pin-kind coin carrying `value`, signed by the
+   * human key. The human's write verb, the mirror of {@link Minter.unpin}. Like
+   * remember it stores a long note across a pointer chain, but pins are meant to
+   * stay few and short.
+   */
+  async pin(value: string, signer: Signer): Promise<MintResult> {
+    return this.writeText("pin", value, signer);
+  }
+
+  /**
+   * Unpin a durable note by its id: the human's drop verb, the mirror of
+   * {@link Minter.pin}. Identical to forgetting — it spends the named coin — but
+   * named for the human side. The signature decides what may be spent: spend
+   * only ever consults the signer's own address, so the human key drops pins and
+   * the agent key drops memories; neither can spend the other's coins.
+   */
+  async unpin(id: string, signer: Signer): Promise<SpendResult> {
+    return this.spend(parseCoinId(id), signer);
+  }
+
+  private async writeText(kind: MemoKind, value: string, signer: Signer): Promise<MintResult> {
     if (Buffer.byteLength(value, "utf8") <= MAX_PAYLOAD_BYTES) {
-      return this.mint(memory(text(value)), signer);
+      return this.mint(withKind(kind, text(value)), signer);
     }
     const chunks = chunkText(value, MAX_PAYLOAD_BYTES);
     if (chunks.length > MAX_POINTER_CHUNKS) {
@@ -186,10 +211,10 @@ export class Minter {
     }
     const txids: string[] = [];
     for (const chunk of chunks) {
-      const { txid } = await this.mintData(memory(text(chunk)), signer);
+      const { txid } = await this.mintData(withKind(kind, text(chunk)), signer);
       txids.push(txid);
     }
-    return this.mint(memory(pointer(concatTxids(txids))), signer);
+    return this.mint(withKind(kind, pointer(concatTxids(txids))), signer);
   }
 
   /**
@@ -276,6 +301,11 @@ function sameOutpoint(
   b: { readonly txid: string; readonly outIdx: number },
 ): boolean {
   return a.txid === b.txid && a.outIdx === b.outIdx;
+}
+
+/** Wrap content in the memo of the given author kind. */
+function withKind(kind: MemoKind, content: MemoContent): Memo {
+  return kind === "pin" ? pin(content) : memory(content);
 }
 
 /** Pack chunk txids into one pointer payload: each txid as its 32 raw bytes, in order. */

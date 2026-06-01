@@ -198,6 +198,60 @@ describe("Minter.remember with large content", () => {
   });
 });
 
+/** A CoinSource whose coins depend on the queried address, for cross-author tests. */
+function addressAwareHarness(byAddress: Record<string, SpendableCoin[]>): { minter: Minter } {
+  const source: CoinSource = { spendableCoins: async (address) => byAddress[address] ?? [] };
+  const broadcaster: Broadcaster = {
+    broadcast: async (rawTx) => ({ txid: Tx.deser(rawTx).txid() }),
+  };
+  return { minter: new Minter(source, broadcaster) };
+}
+
+describe("Minter.pin and unpin", () => {
+  test("pin mints a pin-kind coin carrying the note", async () => {
+    const { minter } = harness([coin(10_000n)]);
+
+    const result = await minter.pin("standing: cite dates", SIGNER);
+
+    expect(result.memo).toEqual(pin(text("standing: cite dates")));
+    expect(decodeMemo(Tx.deser(result.rawTx).outputs[OP_RETURN_VOUT]!.script)).toEqual(
+      pin(text("standing: cite dates")),
+    );
+  });
+
+  test("unpin spends the named coin", async () => {
+    const { minter, broadcasts } = harness([coin(10_000n, 0), coin(DUST_SATS, 1)]);
+
+    const result = await minter.unpin(coinId(outpointAt(1)), SIGNER);
+
+    expect(broadcasts).toHaveLength(1);
+    expect(result.outpoint).toEqual(outpointAt(1));
+  });
+});
+
+describe("signature permission (AMP-213)", () => {
+  test("the agent key cannot spend a human pin", async () => {
+    const wallet = Wallet.fromMnemonic(PHRASE, { prefix: "ectest" });
+    const human = wallet.signer("human");
+    const agent = wallet.signer("agent");
+    const pinOutpoint = { txid: "22".repeat(32), outIdx: 1 };
+    const { minter } = addressAwareHarness({
+      [human.address]: [
+        { outpoint: pinOutpoint, sats: DUST_SATS },
+        { outpoint: { txid: "22".repeat(32), outIdx: 0 }, sats: 10_000n },
+      ],
+      [agent.address]: [{ outpoint: { txid: "33".repeat(32), outIdx: 0 }, sats: 10_000n }],
+    });
+
+    // The agent's spend only consults the agent's own address, where the pin is absent.
+    await expect(minter.forget(coinId(pinOutpoint), agent)).rejects.toBeInstanceOf(
+      MemoCoinNotFoundError,
+    );
+    // The human, who holds the pin at their address, can drop it.
+    await expect(minter.unpin(coinId(pinOutpoint), human)).resolves.toBeDefined();
+  });
+});
+
 describe("Minter.mintAll", () => {
   test("mints the initial pins in order, one broadcast each", async () => {
     const { minter, broadcasts } = harness([coin(100_000n)]);
