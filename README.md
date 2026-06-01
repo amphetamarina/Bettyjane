@@ -17,13 +17,20 @@ The full design and rationale are in [docs/INITIAL_SPEC.md](docs/INITIAL_SPEC.md
 
 ## Status
 
-Early. The library can derive keys and addresses, observe funding, encode and
-decode the memo format, mint memo coins, and read the live memory back. The agent
-verbs `remember(note)` and `forget(id)` are implemented, and the first piece of
-the bootstrap CLI (`bj inspect`) has landed. A runnable [`examples/`](examples)
-loop and a gated testnet [end-to-end suite](docs/testnet-and-e2e.md) exercise the
-whole thing on chain. There is no published package yet — consume it as a library
-from this repo.
+The v0.1.0 milestone is feature-complete. The library derives keys and addresses,
+observes funding, encodes and decodes the memo format, and mints and reads memory
+coins. The agent verbs `remember(note)` / `forget(id)` and the human verbs
+`pin(note)` / `unpin(id)` are implemented; large notes that exceed one coin are
+stored across a [pointer chain](docs/coin-format.md) and reassembled on read. The
+two-function integration API (`loadMemory` / `saveMemory`) plus an off-chain
+embedding index, a hashing embedder, and `retrieveRelevant` give a small working
+set each turn. Claude Code drives it all through hooks (load / capture /
+consolidate) with model-based distillation via the `claude` CLI, and the repo
+installs as a Claude Code plugin with `/pin` and `/unpin` commands. The `bj` CLI
+covers `inspect`, `pin`, `unpin`, and `init`. A runnable [`examples/`](examples)
+loop and a gated [end-to-end suite](docs/testnet-and-e2e.md) exercise it on chain.
+There is no published npm package yet — consume it as a library or plugin from
+this repo.
 
 ## Requirements
 
