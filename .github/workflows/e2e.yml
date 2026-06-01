@@ -50,7 +50,7 @@ jobs:
           mkdir -p "$DATADIR"
           echo "DATADIR=$DATADIR" >> "$GITHUB_ENV"
           bitcoind $RPC_ARGS -datadir="$DATADIR" -daemon \
-            -chronik -chronikbind=127.0.0.1:8331 -fallbackfee=0.00001
+            -chronik -chronikbind=127.0.0.1:8331 -fallbackfee=20
           for _ in $(seq 1 60); do
             if bitcoin-cli $RPC_ARGS -datadir="$DATADIR" getblockchaininfo >/dev/null 2>&1; then
               echo "node is up"
@@ -63,11 +63,19 @@ jobs:
 
       - name: Fund the agent address
         run: |
+          CLI="bitcoin-cli $RPC_ARGS -datadir=$DATADIR"
+          # The Minter spends all funding coins at once, and coinbase outputs need
+          # 100 confirmations, so the agent cannot be funded with coinbases
+          # directly (mint would try to spend an immature one). Mine to a node
+          # wallet to mature the coinbases, then send a normal output to the agent.
+          $CLI createwallet miner >/dev/null
+          MINER="$($CLI -rpcwallet=miner getnewaddress)"
+          $CLI generatetoaddress 200 "$MINER" >/dev/null
           ADDR="$(bun test/e2e/print-address.ts)"
           echo "agent address: $ADDR"
-          # 200 blocks so the first ~100 coinbases mature (maturity is 100 blocks).
-          bitcoin-cli $RPC_ARGS -datadir="$DATADIR" generatetoaddress 200 "$ADDR" >/dev/null
-          echo "tip height: $(bitcoin-cli $RPC_ARGS -datadir="$DATADIR" getblockcount)"
+          $CLI -rpcwallet=miner -named sendtoaddress address="$ADDR" amount=1000 >/dev/null
+          $CLI generatetoaddress 1 "$MINER" >/dev/null
+          echo "tip height: $($CLI getblockcount)"
 
       - name: Run e2e
         run: bun test test/e2e
