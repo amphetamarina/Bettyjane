@@ -34,7 +34,10 @@ describe("loadMemory", () => {
     const loaded = await loadMemory(source, { pin: PINS, memory: MEM });
 
     expect(loaded.pins).toEqual(["name: Bettyjane"]);
-    expect(loaded.memories).toEqual(["deploys run from CI", "prefer bun"]);
+    expect(loaded.memories).toEqual([
+      { id: "bb:1", text: "deploys run from CI" },
+      { id: "cc:1", text: "prefer bun" },
+    ]);
   });
 
   test("caps the working set at maxWorking", async () => {
@@ -45,7 +48,7 @@ describe("loadMemory", () => {
 
     const loaded = await loadMemory(source, { pin: PINS, memory: MEM }, { maxWorking: 2 });
 
-    expect(loaded.memories).toEqual(["one", "two"]);
+    expect(loaded.memories.map((m) => m.text)).toEqual(["one", "two"]);
   });
 });
 
