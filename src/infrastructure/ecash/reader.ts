@@ -1,9 +1,13 @@
-import { Script, fromHex } from "ecash-lib";
+import { Script, fromHex, toHex } from "ecash-lib";
 import { ChronikClient } from "chronik-client";
 import type { Memo } from "../../domain/memo";
 import { decodeMemo } from "./memo-codec";
 import { DUST_SATS } from "./protocol";
+import { MalformedMemoError } from "./errors";
 import { networkConfig, type Network, type NetworkConfig } from "./network";
+
+/** A txid is 32 bytes; a pointer payload is a run of them naming chunk txs. */
+const TXID_BYTES = 32;
 
 /**
  * Reading the live memory: the unspent dust coins at an address are what the
@@ -72,6 +76,28 @@ export class MemoReader {
     return coins.filter((coin): coin is LiveCoin => coin !== null);
   }
 
+  /**
+   * The full text of a live memory. An inline text coin returns its text
+   * directly; a pointer coin names its chunk transactions, so this fetches each
+   * chunk in order and concatenates them back into the original note. The chunk
+   * transactions carry no live coin of their own — they are reachable only
+   * through the pointer.
+   */
+  async resolveText(coin: LiveCoin): Promise<string> {
+    if (coin.memo.content.type === "text") return coin.memo.content.text;
+    const txids = splitTxids(coin.memo.content.pointer);
+    const chunks = await Promise.all(txids.map((txid) => this.chunkText(txid)));
+    return chunks.join("");
+  }
+
+  private async chunkText(txid: string): Promise<string> {
+    const memo = firstMemo(await this.source.outputScripts(txid));
+    if (!memo || memo.content.type !== "text") {
+      throw new MalformedMemoError(`pointer chunk ${txid} is not text`);
+    }
+    return memo.content.text;
+  }
+
   private async toLiveCoin(coin: UnspentCoin): Promise<LiveCoin | null> {
     const memo = firstMemo(await this.source.outputScripts(coin.outpoint.txid));
     if (!memo) return null;
@@ -82,6 +108,17 @@ export class MemoReader {
       confirmed: coin.blockHeight !== MEMPOOL_BLOCK_HEIGHT,
     };
   }
+}
+
+function splitTxids(pointer: Uint8Array): string[] {
+  if (pointer.length === 0 || pointer.length % TXID_BYTES !== 0) {
+    throw new MalformedMemoError(`pointer payload is ${pointer.length} bytes, not a run of txids`);
+  }
+  const txids: string[] = [];
+  for (let i = 0; i < pointer.length; i += TXID_BYTES) {
+    txids.push(toHex(pointer.subarray(i, i + TXID_BYTES)));
+  }
+  return txids;
 }
 
 function firstMemo(scripts: readonly Script[]): Memo | null {
