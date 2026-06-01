@@ -1,0 +1,48 @@
+name: E2E (testnet)
+
+# Live end-to-end run against eCash testnet. Kept off the per-PR path to avoid
+# live-network flakiness and faucet pressure: it runs on a weekly schedule and
+# on manual dispatch. The main CI workflow stays hermetic.
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 6 * * 1"
+
+concurrency:
+  group: e2e-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  e2e:
+    name: Live testnet e2e
+    runs-on: ubuntu-latest
+    # Only on the canonical repo, where the funded testnet secret exists.
+    if: github.repository_owner == 'amphetamarina'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: "1.2"
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      # Fail loudly instead of silently skipping when the wallet secret is absent.
+      - name: Require funding secret
+        env:
+          BJ_MNEMONIC: ${{ secrets.BJ_MNEMONIC }}
+        run: |
+          if [ -z "$BJ_MNEMONIC" ]; then
+            echo "BJ_MNEMONIC secret is not set; the e2e suite would skip." >&2
+            echo "Configure a funded testnet wallet secret to run it." >&2
+            exit 1
+          fi
+
+      - name: Run e2e
+        env:
+          BJ_MNEMONIC: ${{ secrets.BJ_MNEMONIC }}
+          BJ_PASSPHRASE: ${{ secrets.BJ_PASSPHRASE }}
+          BJ_NETWORK: testnet
+        run: bun test test/e2e
