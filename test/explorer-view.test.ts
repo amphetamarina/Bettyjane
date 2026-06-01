@@ -34,7 +34,7 @@ describe("toMemoryView", () => {
       kind: "memory",
       author: "agent",
       confirmed: true,
-      content: { type: "text", text: "remember the milk" },
+      content: { type: "text", text: "remember the milk", viaPointer: false },
       explorerUrl: `https://explorer.e.cash/tx/${"a".repeat(64)}`,
     });
   });
@@ -48,12 +48,20 @@ describe("toMemoryView", () => {
     expect(view.author).toBe("human");
   });
 
-  test("renders a pointer memo as hex", () => {
+  test("renders an unresolved pointer memo as hex", () => {
     const coin = textCoin({
       memo: { kind: "memory", content: { type: "pointer", pointer: new Uint8Array([0xde, 0xad]) } },
     });
     const view = toMemoryView(coin, "mainnet");
     expect(view.content).toEqual({ type: "pointer", pointerHex: "dead" });
+  });
+
+  test("renders a resolved pointer memo as text flagged viaPointer", () => {
+    const coin = textCoin({
+      memo: { kind: "memory", content: { type: "pointer", pointer: new Uint8Array([0xde, 0xad]) } },
+    });
+    const view = toMemoryView(coin, "mainnet", "the full reassembled note");
+    expect(view.content).toEqual({ type: "text", text: "the full reassembled note", viaPointer: true });
   });
 
   test("carries the unconfirmed flag and a null explorer url on regtest", () => {
