@@ -1,5 +1,6 @@
 import { beforeAll, describe, expect, test } from "bun:test";
 import {
+  ChronikGateway,
   type LiveCoin,
   MEMO_COIN_VOUT,
   MemoReader,
@@ -25,6 +26,7 @@ import {
  */
 
 const NETWORK = (process.env.BJ_NETWORK as Network) || "testnet";
+const FUNDING_MIN_SATS = 2000n;
 const POLL_INTERVAL_MS = 3000;
 const POLL_TIMEOUT_MS = 90_000;
 const TEST_TIMEOUT_MS = 180_000;
@@ -58,6 +60,7 @@ describe.skipIf(!process.env.BJ_MNEMONIC)(`e2e: remember and forget on ${NETWORK
   let agent: Signer;
   let minter: Minter;
   let reader: MemoReader;
+  let chronik: ChronikGateway;
 
   beforeAll(() => {
     if (NETWORK === "mainnet") {
@@ -68,11 +71,21 @@ describe.skipIf(!process.env.BJ_MNEMONIC)(`e2e: remember and forget on ${NETWORK
     agent = wallet.signer("agent");
     minter = Minter.fromNetwork(config);
     reader = MemoReader.fromNetwork(config);
+    chronik = ChronikGateway.fromNetwork(config);
   });
 
   test(
     "remembers a note, sees it live, forgets it, sees it gone",
     async () => {
+      // Wait for the address to be funded: on regtest this absorbs the lag
+      // between generating coins and Chronik indexing them; on testnet it waits
+      // for the hand-funding to arrive.
+      await chronik.awaitFunding(
+        agent.address,
+        { minimumSats: FUNDING_MIN_SATS },
+        { pollIntervalMs: POLL_INTERVAL_MS, timeoutMs: POLL_TIMEOUT_MS },
+      );
+
       const note = `bettyjane e2e ${Date.now()}-${process.pid}`;
 
       const minted = await minter.remember(note, agent);
