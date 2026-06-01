@@ -64,6 +64,16 @@ describe("signing keys", () => {
   });
 });
 
+describe("signer", () => {
+  test("bundles the account's address with its signing key", () => {
+    const wallet = Wallet.fromMnemonic(PHRASE);
+    const signer = wallet.signer("human");
+    expect(signer.address).toBe(wallet.account("human").address);
+    expect(signer.seckey).toEqual(wallet.signingKey("human").seckey);
+    expect(signer.pubkey).toEqual(wallet.account("human").pubkey);
+  });
+});
+
 describe("generateMnemonic", () => {
   test("produces a valid 12-word BIP-39 phrase by default", () => {
     const phrase = generateMnemonic();
