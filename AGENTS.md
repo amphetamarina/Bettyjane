@@ -56,6 +56,13 @@ plain constructor for tests.
 - **Tests** use `bun:test`, one suite file per module under `test/`, named for
   behavior. Derive keys inside `test`/`beforeAll` bodies, never at module top
   level (see gotchas).
+- **Keep the e2e suite current.** `test/e2e` proves the agent verbs on a real
+  chain (regtest in CI, no faucet — see [docs/testnet-and-e2e.md](docs/testnet-and-e2e.md)).
+  Whenever a change adds or alters an on-chain capability — a new verb, a change
+  to what a coin carries, or how coins are read or spent — extend the e2e flow to
+  exercise it, and never weaken an existing assertion to make a change pass. It is
+  skipped from the default `bun test` and runs on every PR via the
+  `E2E (regtest)` workflow, so a regression there blocks the merge.
 - **Commits** are atomic and Conventional (`feat:`, `fix:`, `docs:`, `ci:`),
   with an `(AMP-NNN)` suffix when a Linear issue applies. One revertable unit per
   commit. Each issue ships as a branch and PR off `main`.
