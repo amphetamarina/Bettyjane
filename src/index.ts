@@ -1,6 +1,9 @@
 export type { Memo, MemoContent, MemoKind } from "./domain/memo";
 export { EmptyMemoError, memory, pin, pointer, text } from "./domain/memo";
 
+export type { Outpoint } from "./domain/coin-id";
+export { InvalidCoinIdError, coinId, parseCoinId } from "./domain/coin-id";
+
 export type { Author } from "./domain/author";
 export { AUTHORS, authorOf, kindOf } from "./domain/author";
 
