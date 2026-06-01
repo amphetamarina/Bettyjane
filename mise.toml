@@ -16,3 +16,7 @@ run = "bun test test/e2e"
 [tasks.typecheck]
 description = "Type-check without emitting"
 run = "bun run tsc --noEmit"
+
+[tasks.watch]
+description = "Serve the explorer for an address (mise run watch -- <address> -n mainnet)"
+run = "bun explorer/server.ts"
