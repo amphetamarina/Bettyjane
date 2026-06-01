@@ -9,6 +9,10 @@ run = "bun install"
 description = "Run the test suite"
 run = "bun test"
 
+[tasks.test-e2e]
+description = "Run the live testnet e2e suite (needs BJ_MNEMONIC + a funded testnet wallet)"
+run = "bun test test/e2e"
+
 [tasks.typecheck]
 description = "Type-check without emitting"
 run = "bun run tsc --noEmit"
