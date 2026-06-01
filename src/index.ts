@@ -32,8 +32,15 @@ export type {
   MinterOptions,
   MintResult,
   SpendableCoin,
+  SpendResult,
 } from "./infrastructure/ecash/minter";
-export { InsufficientFundsError, MEMO_COIN_VOUT, Minter, OP_RETURN_VOUT } from "./infrastructure/ecash/minter";
+export {
+  InsufficientFundsError,
+  MEMO_COIN_VOUT,
+  MemoCoinNotFoundError,
+  Minter,
+  OP_RETURN_VOUT,
+} from "./infrastructure/ecash/minter";
 
 export type { LiveCoin, MemoCoinSource, UnspentCoin } from "./infrastructure/ecash/reader";
 export { MemoReader } from "./infrastructure/ecash/reader";
