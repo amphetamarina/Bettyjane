@@ -49,3 +49,31 @@ wallet.signingKey("agent");     // { seckey, pubkey } — to spend/forget coins 
 
 The wallet derives on demand and holds no per-author state, so the same wallet
 instance can hand out both authors' addresses and keys.
+
+## Loading the key from the environment
+
+`Wallet.fromMnemonic` is the low-level constructor. In the CLI and the Claude
+Code hooks the key is not hardcoded — it is read from the environment, so the
+seed lives in your shell or a secrets manager and never in the repo.
+
+```ts
+import { loadWallet } from "./src/index";
+
+const wallet = loadWallet();        // reads process.env
+wallet.signer("human");             // sign pins with the human key
+wallet.address("agent");            // the memory address to fund
+```
+
+| Variable | Required | Meaning |
+| --- | --- | --- |
+| `BJ_MNEMONIC` | yes | the BIP-39 phrase that recovers both authors |
+| `BJ_PASSPHRASE` | no | optional BIP-39 passphrase (a different one derives different keys) |
+| `BJ_NETWORK` | no | `mainnet` or `testnet`; defaults to `testnet` |
+
+- A missing or blank `BJ_MNEMONIC` throws `MissingMnemonicError`.
+- An unrecognized `BJ_NETWORK` throws `InvalidNetworkError`.
+- `loadWallet(env)` accepts an explicit environment map; with no argument it
+  reads `process.env`.
+
+The default network is testnet, so a bootstrap never touches real XEC until you
+set `BJ_NETWORK=mainnet` on purpose.
