@@ -74,4 +74,42 @@ describe("distillTurn", () => {
     const lines = ["not json", line({ type: "user", message: { role: "user", content: "ok" } }), ""];
     expect(distillTurn(lines, 200)).toBe("ok");
   });
+
+  test("ignores an isMeta skill banner injected as a user message", () => {
+    const lines = [
+      line({ type: "user", message: { role: "user", content: "fix the auth flow" } }),
+      line({
+        type: "user",
+        isMeta: true,
+        message: {
+          role: "user",
+          content: [{ type: "text", text: "Base directory for this skill: /home/x/skills/worktrees" }],
+        },
+      }),
+    ];
+    expect(distillTurn(lines, 200)).toBe("fix the auth flow");
+  });
+
+  test("ignores an isMeta image-source banner", () => {
+    const lines = [
+      line({ type: "user", message: { role: "user", content: "ship it" } }),
+      line({
+        type: "user",
+        isMeta: true,
+        message: { role: "user", content: [{ type: "text", text: "[Image: source: /home/x/image-cache/1.png]" }] },
+      }),
+    ];
+    expect(distillTurn(lines, 200)).toBe("ship it");
+  });
+
+  test("returns null when the only user content is injected meta", () => {
+    const lines = [
+      line({
+        type: "user",
+        isMeta: true,
+        message: { role: "user", content: [{ type: "text", text: "Base directory for this skill: /x" }] },
+      }),
+    ];
+    expect(distillTurn(lines, 200)).toBeNull();
+  });
 });
