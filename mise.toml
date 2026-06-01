@@ -1,0 +1,14 @@
+[tools]
+bun = "1.2"
+
+[tasks.install]
+description = "Install dependencies"
+run = "bun install"
+
+[tasks.test]
+description = "Run the test suite"
+run = "bun test"
+
+[tasks.typecheck]
+description = "Type-check without emitting"
+run = "bun run tsc --noEmit"
