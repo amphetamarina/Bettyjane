@@ -96,23 +96,31 @@ The public API is re-exported from [`src/index.ts`](src/index.ts).
 ## Examples and end-to-end tests
 
 The default `mise run test` suite is hermetic — every test runs against fakes and
-touches no network. Real on-chain coverage lives separately:
+touches no network. Real on-chain coverage lives separately and runs against
+either a private **regtest** node (no faucet, deterministic — what CI uses) or
+public **testnet**:
 
 - [`examples/full-loop.ts`](examples/full-loop.ts) — a narrated, runnable loop
-  (remember → list → forget) against testnet. Fund the printed address from the
-  faucet, then watch the verbs work. See [`examples/README.md`](examples/README.md).
+  (remember → list → forget). Honors `BJ_NETWORK` / `BJ_CHRONIK_URL`, so it works
+  against regtest or testnet. See [`examples/README.md`](examples/README.md).
 - [`test/e2e`](test/e2e) — a gated end-to-end suite that asserts the same flow on
   chain. It is skipped unless `BJ_MNEMONIC` is set, so it never runs in the
-  default suite. Run it with a funded testnet wallet:
+  default suite. The [`E2E (regtest)`](.github/workflows/e2e.yml) workflow runs it
+  against a regtest node with no faucet; you can also run it locally:
 
   ```bash
+  # testnet (fund the wallet yourself)
   BJ_MNEMONIC="twelve word phrase ..." mise run test-e2e
+
+  # regtest (generate coins locally — see the docs)
+  BJ_NETWORK=regtest BJ_CHRONIK_URL=http://127.0.0.1:8331 \
+    BJ_MNEMONIC="abandon ... about" mise run test-e2e
   ```
 
-Funding is manual (the public faucet is browser-only and the official one is
-reCAPTCHA-gated), and the loop recycles funds by sweeping each forgotten coin's
-value back to the address. See [docs/testnet-and-e2e.md](docs/testnet-and-e2e.md)
-for the full funding and CI story.
+There is no working public testnet faucet, so regtest is the recommended path;
+the loop also recycles funds by sweeping each forgotten coin's value back to the
+address. See [docs/testnet-and-e2e.md](docs/testnet-and-e2e.md) for the full
+funding and CI story.
 
 ## Project layout
 

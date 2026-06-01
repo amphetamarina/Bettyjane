@@ -51,9 +51,13 @@ describe("loadWallet from the environment", () => {
   });
 
   test("rejects an unknown BJ_NETWORK", () => {
-    expect(() => loadWallet({ [ENV_MNEMONIC]: PHRASE, [ENV_NETWORK]: "regtest" })).toThrow(
+    expect(() => loadWallet({ [ENV_MNEMONIC]: PHRASE, [ENV_NETWORK]: "mainnett" })).toThrow(
       InvalidNetworkError,
     );
+  });
+
+  test("accepts regtest as a valid BJ_NETWORK", () => {
+    expect(() => loadWallet({ [ENV_MNEMONIC]: PHRASE, [ENV_NETWORK]: "regtest" })).not.toThrow();
   });
 
   test("reads process.env by default", () => {
