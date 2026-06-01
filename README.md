@@ -18,10 +18,12 @@ The full design and rationale are in [docs/INITIAL_SPEC.md](docs/INITIAL_SPEC.md
 ## Status
 
 Early. The library can derive keys and addresses, observe funding, encode and
-decode the memo format, and mint memo coins. The first piece of the bootstrap CLI
-(`bj inspect`) has landed; the full agent verbs (`remember` / `forget`) are still
-in progress. There is no published package yet — consume it as a library from this
-repo.
+decode the memo format, mint memo coins, and read the live memory back. The agent
+verbs `remember(note)` and `forget(id)` are implemented, and the first piece of
+the bootstrap CLI (`bj inspect`) has landed. A runnable [`examples/`](examples)
+loop and a gated testnet [end-to-end suite](docs/testnet-and-e2e.md) exercise the
+whole thing on chain. There is no published package yet — consume it as a library
+from this repo.
 
 ## Requirements
 
@@ -91,15 +93,37 @@ console.log("Minted:", results.map((r) => r.txid));
 
 The public API is re-exported from [`src/index.ts`](src/index.ts).
 
+## Examples and end-to-end tests
+
+The default `mise run test` suite is hermetic — every test runs against fakes and
+touches no network. Real on-chain coverage lives separately:
+
+- [`examples/full-loop.ts`](examples/full-loop.ts) — a narrated, runnable loop
+  (remember → list → forget) against testnet. Fund the printed address from the
+  faucet, then watch the verbs work. See [`examples/README.md`](examples/README.md).
+- [`test/e2e`](test/e2e) — a gated end-to-end suite that asserts the same flow on
+  chain. It is skipped unless `BJ_MNEMONIC` is set, so it never runs in the
+  default suite. Run it with a funded testnet wallet:
+
+  ```bash
+  BJ_MNEMONIC="twelve word phrase ..." mise run test-e2e
+  ```
+
+Funding is manual (the public faucet is browser-only and the official one is
+reCAPTCHA-gated), and the loop recycles funds by sweeping each forgotten coin's
+value back to the address. See [docs/testnet-and-e2e.md](docs/testnet-and-e2e.md)
+for the full funding and CI story.
+
 ## Project layout
 
 ```
 bin/                CLI entrypoints (bj — the litcli-style inspector)
+examples/           runnable testnet scripts (the agent-verb loop)
 src/
   domain/           pure, chain-agnostic memory model (memo, author, funding)
   infrastructure/
     ecash/          eCash adapters: wallet, chronik, codec, minter, network
-test/               bun:test suites, one per module
+test/               bun:test suites, one per module (e2e/ is gated, live testnet)
 docs/               design spec and per-subsystem notes
 ```
 
@@ -109,6 +133,7 @@ docs/               design spec and per-subsystem notes
 - [docs/keys-and-addresses.md](docs/keys-and-addresses.md) — the two-key, two-author model
 - [docs/coin-format.md](docs/coin-format.md) — the on-chain memo (OP_RETURN) format
 - [docs/funding.md](docs/funding.md) — funding an address and waiting for it
+- [docs/testnet-and-e2e.md](docs/testnet-and-e2e.md) — testnet funding, examples, and the e2e suite
 
 ## Contributing
 
