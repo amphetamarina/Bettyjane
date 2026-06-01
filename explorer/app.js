@@ -69,6 +69,13 @@ function card(memory) {
   }
   el.append(content);
 
+  if (memory.content.type === "text" && memory.content.viaPointer) {
+    const note = document.createElement("div");
+    note.className = "viapointer";
+    note.textContent = "↳ stored across multiple coins";
+    el.append(note);
+  }
+
   const meta = document.createElement("div");
   meta.className = "meta";
   const outpoint = document.createElement("span");

@@ -1,7 +1,7 @@
 import { authorOf, type Author, type LiveCoin, type MemoKind, type Network } from "../src/index";
 
 export type MemoryContentView =
-  | { readonly type: "text"; readonly text: string }
+  | { readonly type: "text"; readonly text: string; readonly viaPointer: boolean }
   | { readonly type: "pointer"; readonly pointerHex: string };
 
 export interface MemoryView {
@@ -26,7 +26,12 @@ export function txExplorerUrl(network: Network, txid: string): string | null {
   return base ? `${base}${txid}` : null;
 }
 
-export function toMemoryView(coin: LiveCoin, network: Network): MemoryView {
+/**
+ * Build the view of a coin. For a pointer coin, pass `resolvedText` (the
+ * reassembled chunks) so the reader sees the full memory as text; without it a
+ * pointer falls back to its raw hex, which is what to show if resolution failed.
+ */
+export function toMemoryView(coin: LiveCoin, network: Network, resolvedText?: string): MemoryView {
   return {
     outpoint: `${coin.outpoint.txid}:${coin.outpoint.outIdx}`,
     txid: coin.outpoint.txid,
@@ -34,13 +39,14 @@ export function toMemoryView(coin: LiveCoin, network: Network): MemoryView {
     kind: coin.memo.kind,
     author: authorOf(coin.memo.kind),
     confirmed: coin.confirmed,
-    content: contentView(coin),
+    content: contentView(coin, resolvedText),
     explorerUrl: txExplorerUrl(network, coin.outpoint.txid),
   };
 }
 
-function contentView(coin: LiveCoin): MemoryContentView {
+function contentView(coin: LiveCoin, resolvedText?: string): MemoryContentView {
   const content = coin.memo.content;
-  if (content.type === "text") return { type: "text", text: content.text };
+  if (content.type === "text") return { type: "text", text: content.text, viaPointer: false };
+  if (resolvedText !== undefined) return { type: "text", text: resolvedText, viaPointer: true };
   return { type: "pointer", pointerHex: Buffer.from(content.pointer).toString("hex") };
 }
