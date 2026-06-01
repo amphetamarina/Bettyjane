@@ -22,10 +22,10 @@ import { networkConfig, type Network, type NetworkConfig } from "./network";
  * that builds, signs, and broadcasts a transaction.
  *
  * Coins at the address come in two kinds, told apart by value alone: memo coins
- * hold exactly {@link DUST_SATS}, funding/change coins hold more. The minter
- * only ever spends the funding kind, so minting a new memory never disturbs an
- * existing one — forgetting (spending a memo coin) stays a separate, deliberate
- * act.
+ * hold exactly {@link DUST_SATS}, funding/change coins hold more. Minting only
+ * ever spends the funding kind, so a new memory never disturbs an existing one.
+ * Forgetting is the opposite write — {@link Minter.spend} deliberately consumes
+ * one memo coin to drop it from the live set, leaving every other coin alone.
  */
 
 /** Where the OP_RETURN sits, the memo coin right after it, change last. */
@@ -62,6 +62,13 @@ export interface MintResult {
   readonly memo: Memo;
 }
 
+/** The outcome of a forget: the spend transaction and the coin it removed. */
+export interface SpendResult {
+  readonly txid: string;
+  readonly rawTx: Uint8Array;
+  readonly outpoint: { readonly txid: string; readonly outIdx: number };
+}
+
 /** Thrown when an address has no funding coin large enough to pay for a write. */
 export class InsufficientFundsError extends Error {
   constructor(
@@ -70,6 +77,14 @@ export class InsufficientFundsError extends Error {
   ) {
     super(`address ${address} has no funding coins to mint with (${availableSats} spendable sats)`);
     this.name = "InsufficientFundsError";
+  }
+}
+
+/** Thrown when the coin asked to be forgotten is not live at the author's address. */
+export class MemoCoinNotFoundError extends Error {
+  constructor(readonly outpoint: { readonly txid: string; readonly outIdx: number }) {
+    super(`no live coin at ${outpoint.txid}:${outpoint.outIdx} to forget`);
+    this.name = "MemoCoinNotFoundError";
   }
 }
 
@@ -138,9 +153,50 @@ export class Minter {
     return results;
   }
 
+  /**
+   * Forget a memory by spending its coin. The dust coin named by `outpoint`
+   * leaves the live set, and its value plus a funding coin (to cover the fee) is
+   * swept back to the author as change. Forgetting writes nothing to an
+   * OP_RETURN — the spend transaction itself is the record of the change, and
+   * the chain keeps the full history. Other memo coins at the address are never
+   * touched.
+   */
+  async spend(
+    outpoint: { readonly txid: string; readonly outIdx: number },
+    signer: Signer,
+  ): Promise<SpendResult> {
+    const ownerScript = Address.fromCashAddress(signer.address).toScript();
+    const coins = await this.coins.spendableCoins(signer.address);
+    const target = coins.find((coin) => sameOutpoint(coin.outpoint, outpoint));
+    if (!target) throw new MemoCoinNotFoundError(outpoint);
+    const funding = this.selectFunding(coins, signer.address, target);
+
+    const tx = new TxBuilder({
+      inputs: [target, ...funding].map((coin) => ({
+        input: {
+          prevOut: coin.outpoint,
+          signData: { sats: coin.sats, outputScript: ownerScript },
+        },
+        signatory: P2PKHSignatory(signer.seckey, signer.pubkey, ALL_BIP143),
+      })),
+      outputs: [ownerScript], // the reclaimed value, swept back as funding
+    }).sign({ ecc: this.ecc, feePerKb: this.feePerKb, dustSats: DUST_SATS });
+
+    const rawTx = tx.ser();
+    const { txid } = await this.broadcaster.broadcast(rawTx);
+    return { txid, rawTx, outpoint };
+  }
+
   private async fundingCoins(address: string): Promise<SpendableCoin[]> {
-    const coins = await this.coins.spendableCoins(address);
-    const funding = coins.filter((coin) => coin.sats > DUST_SATS);
+    return this.selectFunding(await this.coins.spendableCoins(address), address);
+  }
+
+  private selectFunding(
+    coins: readonly SpendableCoin[],
+    address: string,
+    exclude?: SpendableCoin,
+  ): SpendableCoin[] {
+    const funding = coins.filter((coin) => coin.sats > DUST_SATS && coin !== exclude);
     if (funding.length === 0) {
       const spendable = coins.reduce((total, coin) => total + coin.sats, 0n);
       throw new InsufficientFundsError(address, spendable);
@@ -148,6 +204,13 @@ export class Minter {
     // Largest first so a single coin usually covers the write deterministically.
     return funding.sort((a, b) => (a.sats < b.sats ? 1 : a.sats > b.sats ? -1 : 0));
   }
+}
+
+function sameOutpoint(
+  a: { readonly txid: string; readonly outIdx: number },
+  b: { readonly txid: string; readonly outIdx: number },
+): boolean {
+  return a.txid === b.txid && a.outIdx === b.outIdx;
 }
 
 export { MEMO_COIN_VOUT, OP_RETURN_VOUT };

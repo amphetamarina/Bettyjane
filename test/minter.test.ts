@@ -6,6 +6,7 @@ import {
   DUST_SATS,
   InsufficientFundsError,
   MEMO_COIN_VOUT,
+  MemoCoinNotFoundError,
   Minter,
   OP_RETURN_VOUT,
   type Signer,
@@ -116,5 +117,63 @@ describe("Minter.mintAll", () => {
     for (const result of results) {
       expect(decodeMemo(Tx.deser(result.rawTx).outputs[OP_RETURN_VOUT]!.script)).not.toBeNull();
     }
+  });
+});
+
+/** The outpoint of a coin produced by {@link coin}, by output index. */
+function outpointAt(outIdx: number): { txid: string; outIdx: number } {
+  return { txid: "11".repeat(32), outIdx };
+}
+
+/** The input output-indices of a signed transaction, in order. */
+function inputIndices(rawTx: Uint8Array): number[] {
+  return Tx.deser(rawTx).inputs.map((input) => input.prevOut.outIdx);
+}
+
+describe("Minter.spend", () => {
+  test("broadcasts a tx that consumes the targeted memo coin", async () => {
+    const { minter, broadcasts } = harness([coin(10_000n, 0), coin(DUST_SATS, 1)]);
+
+    const result = await minter.spend(outpointAt(1), SIGNER);
+
+    expect(broadcasts).toHaveLength(1);
+    expect(Tx.deser(result.rawTx).txid()).toBe(result.txid);
+    expect(result.outpoint).toEqual(outpointAt(1));
+    expect(inputIndices(result.rawTx)).toContain(1);
+  });
+
+  test("sweeps the reclaimed value back to the author's address", async () => {
+    const { minter } = harness([coin(10_000n, 0), coin(DUST_SATS, 1)]);
+
+    const { rawTx } = await minter.spend(outpointAt(1), SIGNER);
+    const outputs = Tx.deser(rawTx).outputs;
+
+    expect(outputs).toHaveLength(1);
+    expect(outputs[0]!.sats).toBeGreaterThan(DUST_SATS);
+    expect(outputs[0]!.script.bytecode).toEqual(OWNER_SCRIPT);
+  });
+
+  test("pulls in funding to pay the fee but leaves other memo coins untouched", async () => {
+    const { minter } = harness([coin(10_000n, 0), coin(DUST_SATS, 1), coin(DUST_SATS, 2)]);
+
+    const { rawTx } = await minter.spend(outpointAt(1), SIGNER);
+
+    expect(inputIndices(rawTx).sort()).toEqual([0, 1]);
+  });
+
+  test("throws when no live coin sits at the given outpoint", async () => {
+    const { minter } = harness([coin(10_000n, 0), coin(DUST_SATS, 1)]);
+
+    await expect(minter.spend(outpointAt(9), SIGNER)).rejects.toBeInstanceOf(
+      MemoCoinNotFoundError,
+    );
+  });
+
+  test("throws when no funding coin can cover the fee to forget", async () => {
+    const { minter } = harness([coin(DUST_SATS, 1)]);
+
+    await expect(minter.spend(outpointAt(1), SIGNER)).rejects.toBeInstanceOf(
+      InsufficientFundsError,
+    );
   });
 });
