@@ -12,8 +12,10 @@ import {
   type Signer,
   type SpendableCoin,
   Wallet,
+  coinId,
   decodeMemo,
   EmptyMemoError,
+  InvalidCoinIdError,
   memory,
   pin,
   text,
@@ -208,6 +210,35 @@ describe("Minter.spend", () => {
 
     await expect(minter.spend(outpointAt(1), SIGNER)).rejects.toBeInstanceOf(
       InsufficientFundsError,
+    );
+  });
+});
+
+describe("Minter.forget", () => {
+  test("forgets the coin named by its id, consuming exactly that coin", async () => {
+    const { minter, broadcasts } = harness([coin(10_000n, 0), coin(DUST_SATS, 1)]);
+
+    const result = await minter.forget(coinId(outpointAt(1)), SIGNER);
+
+    expect(broadcasts).toHaveLength(1);
+    expect(result.outpoint).toEqual(outpointAt(1));
+    expect(inputIndices(result.rawTx)).toContain(1);
+  });
+
+  test("rejects a malformed id without broadcasting", async () => {
+    const { minter, broadcasts } = harness([coin(10_000n, 0), coin(DUST_SATS, 1)]);
+
+    await expect(minter.forget("not-a-coin-id", SIGNER)).rejects.toBeInstanceOf(
+      InvalidCoinIdError,
+    );
+    expect(broadcasts).toHaveLength(0);
+  });
+
+  test("throws when the id names no live coin", async () => {
+    const { minter } = harness([coin(10_000n, 0), coin(DUST_SATS, 1)]);
+
+    await expect(minter.forget(coinId(outpointAt(9)), SIGNER)).rejects.toBeInstanceOf(
+      MemoCoinNotFoundError,
     );
   });
 });
