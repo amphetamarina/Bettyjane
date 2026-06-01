@@ -1,23 +1,29 @@
 #!/usr/bin/env bun
 /**
- * Stop hook: remember the turn that just ended as an on-chain memory.
+ * Stop hook: remember the turn that just ended as on-chain memory.
  *
- * Distills the last thing the human asked into one line and mints it as an agent
- * memory coin. Opt-in: it does nothing unless BJ_CAPTURE is truthy AND a wallet
- * is configured, because every memory spends real value and — on mainnet — is
- * public and permanent. It never blocks the session: it always exits 0, and any
- * failure (no funds, network, oversize) is reported on stderr and swallowed.
+ * Renders the latest turn and hands it to a backgrounded worker that distils it
+ * with a model and mints what is worth keeping. The model call takes seconds, so
+ * the worker runs detached: this hook writes the turn to a temp file, spawns the
+ * worker, and returns immediately, never blocking the end of a turn. A crash
+ * loses at most the current turn's memory.
+ *
+ * Opt-in: it does nothing unless BJ_CAPTURE is truthy AND a wallet is
+ * configured, because every memory spends real value and — on mainnet — is
+ * public and permanent. It always exits 0; any failure is reported on stderr.
  *
  * Configure with BJ_CAPTURE=1 plus BJ_MNEMONIC / BJ_NETWORK (see hooks/README.md).
  */
 
-import "ecash-lib/dist/initNodeJs.js";
-import { MAX_PAYLOAD_BYTES, Minter, loadWallet, type Network } from "../src/index";
-import { distillTurn } from "./distill";
+import { openSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { renderTurn } from "./distill";
 
 const ENABLED = new Set(["1", "true", "yes"]);
-// Leave headroom under the OP_RETURN payload cap for the memo header.
-const MEMO_BUDGET = MAX_PAYLOAD_BYTES - 40;
+// Bytes of turn text handed to the distiller. Bounds the model's input cost; the
+// user's ask sits at the head and survives truncation.
+const TURN_BUDGET = 6000;
 
 interface StopPayload {
   readonly transcript_path?: string;
@@ -32,13 +38,21 @@ async function main(): Promise<void> {
   if (payload.stop_hook_active || !payload.transcript_path) return;
 
   const lines = (await Bun.file(payload.transcript_path).text()).split("\n");
-  const memory = distillTurn(lines, MEMO_BUDGET);
-  if (!memory) return;
+  const turn = renderTurn(lines, TURN_BUDGET);
+  if (!turn) return;
 
-  const network = (process.env.BJ_NETWORK as Network) || "testnet";
-  const minter = Minter.fromNetwork(network);
-  const { txid } = await minter.remember(memory, loadWallet().signer("agent"));
-  process.stderr.write(`bettyjane: remembered "${memory}" -> ${txid}\n`);
+  const dir = process.env.CLAUDE_PROJECT_DIR ?? ".";
+  const turnFile = join(tmpdir(), `bettyjane-turn-${process.pid}-${Date.now()}.txt`);
+  await Bun.write(turnFile, turn);
+  const logFd = openSync(join(dir, "hooks", ".capture.log"), "a");
+
+  const worker = Bun.spawn(["bun", join(dir, "hooks", "distill-worker.ts"), turnFile], {
+    stdin: "ignore",
+    stdout: logFd,
+    stderr: logFd,
+    env: process.env,
+  });
+  worker.unref();
 }
 
 main().catch((error) => {
