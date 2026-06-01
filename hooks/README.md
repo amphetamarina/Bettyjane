@@ -1,8 +1,8 @@
 # Claude Code hooks
 
 Drive Bettyjane straight from Claude Code, with no custom runner — the hooks
-*are* the runner. Watch a session wake up knowing the team's memory, and watch
-new memories land on chain as it works.
+*are* the runner. Watch a session wake up knowing the team's memory, watch new
+memories land on chain as it works, and watch the pile get tidied when it ends.
 
 - **`load.ts`** — runs on **SessionStart**. Reads the live coins (the human's
   durable pins and the agent's working memories) and prints them, so Claude
@@ -12,7 +12,13 @@ new memories land on chain as it works.
   agent memory coin. Harness-injected content (skill banners, image notes) wears
   the user role but is ignored, so only what you actually typed is captured.
   **Opt-in.**
+- **`consolidate.ts`** — runs on **SessionEnd** (session close). Tidies the pile
+  that `capture.ts` laid down: forgets exact-duplicate memories, keeping the
+  newest coin for each distinct text. Forgetting sweeps the dust back, so this
+  also recycles funding. **Opt-in** (same `BJ_CAPTURE` gate).
 - **`distill.ts`** — the pure turn → one-line-memory logic (unit-tested).
+- **`dedup.ts`** — the pure duplicate-detection logic for consolidation
+  (unit-tested).
 
 The wiring lives in [`.claude/settings.json`](../.claude/settings.json). Claude
 Code asks you to approve project hooks the first time it sees them.
