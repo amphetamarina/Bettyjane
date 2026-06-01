@@ -10,6 +10,17 @@ export { HashEmbedder, hashEmbed } from "./domain/hash-embedder";
 export type { IndexEntry, RelevanceQuery } from "./domain/retrieval";
 export { DEFAULT_MAX_WORKING, buildIndex, retrieveRelevant } from "./domain/retrieval";
 
+export type {
+  LoadMemoryOptions,
+  LoadedMemory,
+  MemoryAddresses,
+  MemoryOps,
+  MemorySource,
+  MemoryWriter,
+  SaveResult,
+} from "./application/memory";
+export { loadMemory, saveMemory } from "./application/memory";
+
 export type { Author } from "./domain/author";
 export { AUTHORS, authorOf, kindOf } from "./domain/author";
 
