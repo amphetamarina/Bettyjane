@@ -6,10 +6,33 @@
  * supply the items and, for ranking, an index.
  */
 
-import { EmbeddingIndex, type Vector } from "./embedding-index";
+import { EmbeddingIndex, type Embedder, type Vector } from "./embedding-index";
 
 /** Default working-set size: a couple dozen, the knob the spec leaves to the model. */
 export const DEFAULT_MAX_WORKING = 24;
+
+/** A memory's coin id and text, the input to rebuilding the index. */
+export interface IndexEntry {
+  readonly id: string;
+  readonly text: string;
+}
+
+/**
+ * Rebuild the embedding index from memory texts: embed each and key the vector
+ * by its coin id. The index is a cache, not the truth, so this can run any time
+ * from the live coins read off the chain — losing the index costs nothing
+ * permanent.
+ */
+export async function buildIndex(
+  entries: readonly IndexEntry[],
+  embedder: Embedder,
+): Promise<EmbeddingIndex> {
+  const index = new EmbeddingIndex();
+  for (const entry of entries) {
+    index.upsert(entry.id, await embedder.embed(entry.text));
+  }
+  return index;
+}
 
 /** A query to rank by: an embedding vector and the index to score against. */
 export interface RelevanceQuery {

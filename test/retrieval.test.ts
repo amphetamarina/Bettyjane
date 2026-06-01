@@ -1,5 +1,12 @@
 import { describe, expect, test } from "bun:test";
-import { DEFAULT_MAX_WORKING, EmbeddingIndex, retrieveRelevant } from "../src/index";
+import {
+  DEFAULT_MAX_WORKING,
+  EmbeddingIndex,
+  HashEmbedder,
+  buildIndex,
+  hashEmbed,
+  retrieveRelevant,
+} from "../src/index";
 
 const item = (id: string) => ({ id });
 
@@ -41,5 +48,26 @@ describe("retrieveRelevant", () => {
 
   test("exposes a sane default working-set size", () => {
     expect(DEFAULT_MAX_WORKING).toBeGreaterThan(0);
+  });
+});
+
+describe("buildIndex", () => {
+  test("embeds each entry and keys it by coin id", async () => {
+    const index = await buildIndex(
+      [
+        { id: "a:1", text: "the funding wallet ran out of coins" },
+        { id: "b:1", text: "the explorer renders memories in the browser" },
+      ],
+      new HashEmbedder(),
+    );
+
+    expect(index.size).toBe(2);
+    expect(index.ids().sort()).toEqual(["a:1", "b:1"]);
+    const hits = index.nearest(hashEmbed("wallet funding coins"), 1);
+    expect(hits[0]!.id).toBe("a:1");
+  });
+
+  test("returns an empty index for no entries", async () => {
+    expect((await buildIndex([], new HashEmbedder())).size).toBe(0);
   });
 });
