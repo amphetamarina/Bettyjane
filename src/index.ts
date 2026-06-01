@@ -4,7 +4,7 @@ export { EmptyMemoError, memory, pin, pointer, text } from "./domain/memo";
 export type { Author } from "./domain/author";
 export { AUTHORS, authorOf, kindOf } from "./domain/author";
 
-export type { Account, FromMnemonicOptions, SigningKey, WalletOptions } from "./infrastructure/ecash/wallet";
+export type { Account, FromMnemonicOptions, Signer, SigningKey, WalletOptions } from "./infrastructure/ecash/wallet";
 export {
   InvalidEntropyError,
   Wallet,
@@ -25,6 +25,15 @@ export type {
   UtxoSource,
 } from "./infrastructure/ecash/chronik";
 export { ChronikGateway, FundingTimeoutError, systemClock } from "./infrastructure/ecash/chronik";
+
+export type {
+  Broadcaster,
+  CoinSource,
+  MinterOptions,
+  MintResult,
+  SpendableCoin,
+} from "./infrastructure/ecash/minter";
+export { InsufficientFundsError, MEMO_COIN_VOUT, Minter, OP_RETURN_VOUT } from "./infrastructure/ecash/minter";
 
 export { decodeMemo, encodeMemo, isMemoScript } from "./infrastructure/ecash/memo-codec";
 export { DUST_SATS, LOKAD_ID, MAX_PAYLOAD_BYTES, PROTOCOL_VERSION } from "./infrastructure/ecash/protocol";
