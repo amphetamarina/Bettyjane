@@ -1,5 +1,5 @@
 import { beforeAll, describe, expect, test } from "bun:test";
-import { Address, Script } from "ecash-lib";
+import { Address, Script, fromHex } from "ecash-lib";
 import {
   DUST_SATS,
   type MemoCoinSource,
@@ -8,6 +8,7 @@ import {
   encodeMemo,
   memory,
   pin,
+  pointer,
   text,
   Wallet,
 } from "../src/index";
@@ -49,6 +50,13 @@ function source(
 const AA = "aa".repeat(32);
 const BB = "bb".repeat(32);
 const CC = "cc".repeat(32);
+const DD = "dd".repeat(32);
+
+function pointerBytes(...txids: string[]): Uint8Array {
+  const out = new Uint8Array(txids.length * 32);
+  txids.forEach((txid, i) => out.set(fromHex(txid), i * 32));
+  return out;
+}
 
 describe("MemoReader.listLiveCoins", () => {
   test("returns the decoded memo for each live dust coin", async () => {
@@ -106,5 +114,42 @@ describe("MemoReader.listLiveCoins", () => {
     const { src } = source([], {});
 
     expect(await new MemoReader(src).listLiveCoins(ADDRESS)).toEqual([]);
+  });
+});
+
+describe("MemoReader.resolveText", () => {
+  test("returns the text of an inline memory directly", async () => {
+    const { src, fetched } = source([utxo(AA, DUST_SATS)], {
+      [AA]: [encodeMemo(memory(text("inline note"))), OWNER],
+    });
+    const reader = new MemoReader(src);
+    const [coin] = await reader.listLiveCoins(ADDRESS);
+
+    expect(await reader.resolveText(coin!)).toBe("inline note");
+    expect(fetched).toEqual([AA]); // only the coin's own tx; no chunk fetches
+  });
+
+  test("rejoins a pointer memory's chunk txs in order", async () => {
+    const { src, fetched } = source([utxo(DD, DUST_SATS)], {
+      [DD]: [encodeMemo(memory(pointer(pointerBytes(AA, BB)))), OWNER],
+      [AA]: [encodeMemo(memory(text("Hello, "))), OWNER],
+      [BB]: [encodeMemo(memory(text("world"))), OWNER],
+    });
+    const reader = new MemoReader(src);
+    const [coin] = await reader.listLiveCoins(ADDRESS);
+
+    expect(await reader.resolveText(coin!)).toBe("Hello, world");
+    expect(fetched).toContain(AA);
+    expect(fetched).toContain(BB);
+  });
+
+  test("throws when a pointer payload is not a whole number of txids", async () => {
+    const { src } = source([utxo(DD, DUST_SATS)], {
+      [DD]: [encodeMemo(memory(pointer(new Uint8Array(20)))), OWNER],
+    });
+    const reader = new MemoReader(src);
+    const [coin] = await reader.listLiveCoins(ADDRESS);
+
+    await expect(reader.resolveText(coin!)).rejects.toThrow();
   });
 });
