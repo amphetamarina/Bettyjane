@@ -8,17 +8,31 @@ memories land on chain as it works, and watch the pile get tidied when it ends.
   durable pins and the agent's working memories) and prints them, so Claude
   starts the session with the team's memory in context. Read-only.
 - **`capture.ts`** — runs on **Stop** and **StopFailure** (turn end, including
-  dead ends). Distills the last thing you asked into one line and mints it as an
-  agent memory coin. Harness-injected content (skill banners, image notes) wears
-  the user role but is ignored, so only what you actually typed is captured.
-  **Opt-in.**
+  dead ends). Renders the latest turn and hands it to a backgrounded worker that
+  distils it with a model and mints what is worth keeping. The model call takes
+  seconds, so it runs detached — the hook returns immediately and never blocks
+  the end of a turn. **Opt-in.**
+- **`distill-worker.ts`** — the backgrounded half of capture. Asks the distiller
+  what to remember and mints each note as an agent memory coin. Fails closed: if
+  the distiller is unavailable it mints nothing rather than a weak memory.
+- **`distiller.ts`** — calls the **`claude` CLI** (`claude -p`) to turn one
+  rendered turn into a schema-validated `{remember, forgetIds}` block. Reuses
+  your existing Claude Code auth — no API key, no extra billing. Runs the child
+  with a replacement system prompt and only user settings, so it stays cheap and
+  the project's own Stop hook never fires inside it (capture can't recurse).
 - **`consolidate.ts`** — runs on **SessionEnd** (session close). Tidies the pile
   that `capture.ts` laid down: forgets exact-duplicate memories, keeping the
   newest coin for each distinct text. Forgetting sweeps the dust back, so this
   also recycles funding. **Opt-in** (same `BJ_CAPTURE` gate).
-- **`distill.ts`** — the pure turn → one-line-memory logic (unit-tested).
+- **`distill.ts`** — the pure turn-rendering and reply-parsing logic
+  (unit-tested).
 - **`dedup.ts`** — the pure duplicate-detection logic for consolidation
   (unit-tested).
+
+Capture is **remember-only** for now: the model writes new memories but never
+drops existing ones (`forgetIds` is always empty). Merging and dropping stale
+memories is the SessionEnd job. It needs the `claude` CLI on `PATH`; without it,
+capture mints nothing and logs to `hooks/.capture.log`.
 
 The wiring lives in [`.claude/settings.json`](../.claude/settings.json). Claude
 Code asks you to approve project hooks the first time it sees them.
@@ -31,9 +45,10 @@ With `BJ_NETWORK=mainnet`, every captured memory:
 - is written to the public eCash chain and **cannot be deleted** — `forget` only
   removes it from the *live* set; the text stays in history forever.
 
-So `capture.ts` only writes when you explicitly opt in, and it distills the
-**last thing you asked** (its first line) — make sure that is safe to publish.
-Use `regtest` or `testnet` if you just want to try the flow.
+So `capture.ts` only writes when you explicitly opt in, and a model decides what
+is worth keeping from each turn — its notes are minted verbatim and permanently,
+so treat the whole turn as publishable. Use `regtest` or `testnet` if you just
+want to try the flow.
 
 ## Setup
 

@@ -1,7 +1,8 @@
 /**
- * Pure helpers for turning a Claude Code transcript into a one-line memory.
- * Kept free of I/O and chain code so the distillation rules are unit-testable;
- * the capture hook reads the transcript file and feeds its lines here.
+ * Pure helpers for model-based capture: rendering the latest transcript turn as
+ * text for a distiller, and reading the distiller's reply back into notes. Kept
+ * free of I/O and chain code so the rules are unit-testable; the capture hook
+ * and its worker do the file, subprocess, and chain work around them.
  */
 
 interface ContentBlock {
@@ -40,16 +41,45 @@ function extractText(content: Content): string {
   return "";
 }
 
+interface MemoryOpsEnvelope {
+  readonly is_error?: boolean;
+  readonly structured_output?: { readonly remember?: unknown };
+}
+
 /**
- * The team's working memory of a turn: the last thing the human actually asked,
- * as a single trimmed line within the on-chain byte budget. Assistant messages
- * and tool-result user messages carry no human ask and are skipped, as are
- * isMeta entries — skill banners and harness-injected notes that wear the user
- * role without the human having typed them. Returns null when the turn holds
- * nothing worth remembering.
+ * The notes to remember from a distiller's reply. The reply is the JSON
+ * envelope `claude --output-format json` prints, carrying the schema-validated
+ * memory-ops block in `structured_output`. Each note is trimmed and capped to
+ * the on-chain byte budget; blank and non-string entries are dropped. Throws
+ * when the reply is not the expected JSON, reports an error, or lacks a
+ * remember array, so the caller can decline to write rather than mint garbage.
  */
-export function distillTurn(lines: readonly string[], maxBytes: number): string | null {
-  let memory: string | null = null;
+export function parseMemoryOps(claudeStdout: string, maxBytes: number): string[] {
+  let envelope: MemoryOpsEnvelope;
+  try {
+    envelope = JSON.parse(claudeStdout);
+  } catch {
+    throw new Error("distiller output was not JSON");
+  }
+  if (envelope.is_error) throw new Error("distiller reported an error");
+  const remember = envelope.structured_output?.remember;
+  if (!Array.isArray(remember)) throw new Error("distiller output missing structured_output.remember");
+  const notes: string[] = [];
+  for (const item of remember) {
+    if (typeof item !== "string") continue;
+    const trimmed = item.trim();
+    if (trimmed) notes.push(truncateToBytes(trimmed, maxBytes));
+  }
+  return notes;
+}
+
+interface RenderedEntry {
+  readonly role: "user" | "assistant";
+  readonly text: string;
+}
+
+function entriesOf(lines: readonly string[]): RenderedEntry[] {
+  const entries: RenderedEntry[] = [];
   for (const raw of lines) {
     let entry: TranscriptEntry;
     try {
@@ -58,10 +88,33 @@ export function distillTurn(lines: readonly string[], maxBytes: number): string 
       continue;
     }
     if (entry.isMeta) continue;
-    if ((entry.message?.role ?? entry.role) !== "user") continue;
+    const role = entry.message?.role ?? entry.role;
+    if (role !== "user" && role !== "assistant") continue;
     const text = extractText(entry.message?.content ?? entry.content).trim();
-    const firstLine = (text.split("\n")[0] ?? "").trim();
-    if (firstLine) memory = firstLine;
+    if (text) entries.push({ role, text });
   }
-  return memory === null ? null : truncateToBytes(memory, maxBytes);
+  return entries;
 }
+
+/**
+ * The latest turn as text for a distiller: the last thing the human asked plus
+ * the assistant's response to it, formatted as labelled blocks. Earlier
+ * exchanges, isMeta injections, and entries that carry no text (tool calls and
+ * tool results) are dropped, so the turn is just what was said this round.
+ * Truncated to `maxBytes` from the head, which keeps the user's ask. Returns an
+ * empty string when the turn holds no human ask.
+ */
+export function renderTurn(lines: readonly string[], maxBytes: number): string {
+  const entries = entriesOf(lines);
+  let lastUser = -1;
+  for (let i = 0; i < entries.length; i++) {
+    if (entries[i]!.role === "user") lastUser = i;
+  }
+  if (lastUser === -1) return "";
+  const turn = entries
+    .slice(lastUser)
+    .map((entry) => `${entry.role === "user" ? "User" : "Assistant"}: ${entry.text}`)
+    .join("\n\n");
+  return truncateToBytes(turn, maxBytes);
+}
+
