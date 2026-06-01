@@ -33,8 +33,11 @@ drops existing ones (`forgetIds` is always empty). Merging and dropping stale
 memories is the SessionEnd job. It needs the `claude` CLI on `PATH`; without it,
 capture mints nothing and logs to `hooks/.capture.log`.
 
-The wiring lives in [`.claude/settings.json`](../.claude/settings.json). Claude
-Code asks you to approve project hooks the first time it sees them.
+The wiring lives in [`.claude/settings.json`](../.claude/settings.json) for local
+development, and in [`hooks/hooks.json`](hooks.json) when the repo is installed as
+a Claude Code plugin (see [`.claude-plugin/plugin.json`](../.claude-plugin/plugin.json)),
+which also ships the `/pin` and `/unpin` commands. Claude Code asks you to approve
+project hooks the first time it sees them.
 
 ## ⚠️ On mainnet, memories are real, public, and permanent
 

@@ -1,0 +1,51 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "startup",
+        "hooks": [{ "type": "command", "command": "bun \"${CLAUDE_PLUGIN_ROOT}/hooks/load.ts\"" }]
+      },
+      {
+        "matcher": "resume",
+        "hooks": [{ "type": "command", "command": "bun \"${CLAUDE_PLUGIN_ROOT}/hooks/load.ts\"" }]
+      },
+      {
+        "matcher": "clear",
+        "hooks": [{ "type": "command", "command": "bun \"${CLAUDE_PLUGIN_ROOT}/hooks/load.ts\"" }]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bun \"${CLAUDE_PLUGIN_ROOT}/hooks/capture.ts\"",
+            "timeout": 60
+          }
+        ]
+      }
+    ],
+    "StopFailure": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bun \"${CLAUDE_PLUGIN_ROOT}/hooks/capture.ts\"",
+            "timeout": 60
+          }
+        ]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bun \"${CLAUDE_PLUGIN_ROOT}/hooks/consolidate.ts\"",
+            "timeout": 60
+          }
+        ]
+      }
+    ]
+  }
+}
