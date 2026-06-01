@@ -13,6 +13,12 @@ export interface Embedder {
   embed(text: string): Promise<Vector>;
 }
 
+/** A coin id and how similar its vector is to a query, in [-1, 1]. */
+export interface ScoredCoin {
+  readonly id: string;
+  readonly score: number;
+}
+
 /** Thrown when two vectors of different lengths are compared. */
 export class DimensionMismatchError extends Error {
   constructor(
@@ -69,6 +75,22 @@ export class EmbeddingIndex {
 
   delete(coinId: string): boolean {
     return this.vectors.delete(coinId);
+  }
+
+  /**
+   * The k coin ids whose vectors are most similar to `query`, most similar
+   * first. Ties in score are broken by coin id so the order is deterministic.
+   * Returns fewer than k when the index holds fewer coins, and nothing when k
+   * is not positive.
+   */
+  nearest(query: Vector, k: number): ScoredCoin[] {
+    if (k <= 0) return [];
+    const scored: ScoredCoin[] = [];
+    for (const [id, vector] of this.vectors) {
+      scored.push({ id, score: cosineSimilarity(query, vector) });
+    }
+    scored.sort((a, b) => (b.score - a.score) || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
+    return scored.slice(0, k);
   }
 
   toJSON(): Record<string, number[]> {
