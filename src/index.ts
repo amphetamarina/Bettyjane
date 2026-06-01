@@ -35,6 +35,9 @@ export type {
 } from "./infrastructure/ecash/minter";
 export { InsufficientFundsError, MEMO_COIN_VOUT, Minter, OP_RETURN_VOUT } from "./infrastructure/ecash/minter";
 
+export type { LiveCoin, MemoCoinSource, UnspentCoin } from "./infrastructure/ecash/reader";
+export { MemoReader } from "./infrastructure/ecash/reader";
+
 export { decodeMemo, encodeMemo, isMemoScript } from "./infrastructure/ecash/memo-codec";
 export { DUST_SATS, LOKAD_ID, MAX_PAYLOAD_BYTES, PROTOCOL_VERSION } from "./infrastructure/ecash/protocol";
 export {
