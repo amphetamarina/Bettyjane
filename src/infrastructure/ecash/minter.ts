@@ -9,6 +9,7 @@ import {
 } from "ecash-lib";
 import { ChronikClient } from "chronik-client";
 import { memory, text, type Memo } from "../../domain/memo";
+import { parseCoinId } from "../../domain/coin-id";
 import type { Signer } from "./wallet";
 import { encodeMemo } from "./memo-codec";
 import { DUST_SATS } from "./protocol";
@@ -148,6 +149,15 @@ export class Minter {
    */
   async remember(value: string, signer: Signer): Promise<MintResult> {
     return this.mint(memory(text(value)), signer);
+  }
+
+  /**
+   * Forget a memory by its id: parse the `txid:outIdx` id into the outpoint it
+   * names and spend that coin. The agent's drop verb, taking the same string id
+   * a coin is minted or listed under, so an agent never handles a raw outpoint.
+   */
+  async forget(id: string, signer: Signer): Promise<SpendResult> {
+    return this.spend(parseCoinId(id), signer);
   }
 
   /**
