@@ -1,0 +1,63 @@
+/**
+ * Pure helpers for turning a Claude Code transcript into a one-line memory.
+ * Kept free of I/O and chain code so the distillation rules are unit-testable;
+ * the capture hook reads the transcript file and feeds its lines here.
+ */
+
+interface ContentBlock {
+  readonly type?: string;
+  readonly text?: string;
+}
+
+type Content = string | readonly ContentBlock[] | undefined;
+
+interface TranscriptEntry {
+  readonly role?: string;
+  readonly content?: Content;
+  readonly message?: { readonly role?: string; readonly content?: Content };
+}
+
+/** Truncate to at most `maxBytes` UTF-8 bytes without splitting a codepoint. */
+export function truncateToBytes(value: string, maxBytes: number): string {
+  if (Buffer.byteLength(value, "utf8") <= maxBytes) return value;
+  let out = "";
+  for (const ch of value) {
+    if (Buffer.byteLength(out + ch, "utf8") > maxBytes) break;
+    out += ch;
+  }
+  return out;
+}
+
+function extractText(content: Content): string {
+  if (typeof content === "string") return content;
+  if (Array.isArray(content)) {
+    return content
+      .filter((block): block is ContentBlock => block?.type === "text" && typeof block.text === "string")
+      .map((block) => block.text)
+      .join("\n");
+  }
+  return "";
+}
+
+/**
+ * The team's working memory of a turn: the last thing the human actually asked,
+ * as a single trimmed line within the on-chain byte budget. Tool-result user
+ * messages carry no text and are skipped; assistant messages are ignored.
+ * Returns null when the turn holds nothing worth remembering.
+ */
+export function distillTurn(lines: readonly string[], maxBytes: number): string | null {
+  let memory: string | null = null;
+  for (const raw of lines) {
+    let entry: TranscriptEntry;
+    try {
+      entry = JSON.parse(raw);
+    } catch {
+      continue;
+    }
+    if ((entry.message?.role ?? entry.role) !== "user") continue;
+    const text = extractText(entry.message?.content ?? entry.content).trim();
+    const firstLine = (text.split("\n")[0] ?? "").trim();
+    if (firstLine) memory = firstLine;
+  }
+  return memory === null ? null : truncateToBytes(memory, maxBytes);
+}
