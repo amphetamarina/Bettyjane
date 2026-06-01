@@ -13,6 +13,19 @@ export {
   generateMnemonic,
 } from "./infrastructure/ecash/wallet";
 
+export type { FundingCoin, FundingPolicy, FundingStatus } from "./domain/funding";
+export { assessFunding } from "./domain/funding";
+
+export type { Network, NetworkConfig, NetworkOverrides } from "./infrastructure/ecash/network";
+export { DEFAULT_NETWORK, networkConfig } from "./infrastructure/ecash/network";
+
+export type {
+  AwaitFundingOptions,
+  Clock,
+  UtxoSource,
+} from "./infrastructure/ecash/chronik";
+export { ChronikGateway, FundingTimeoutError, systemClock } from "./infrastructure/ecash/chronik";
+
 export { decodeMemo, encodeMemo, isMemoScript } from "./infrastructure/ecash/memo-codec";
 export { DUST_SATS, LOKAD_ID, MAX_PAYLOAD_BYTES, PROTOCOL_VERSION } from "./infrastructure/ecash/protocol";
 export {
