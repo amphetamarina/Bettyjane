@@ -13,6 +13,16 @@ export {
   generateMnemonic,
 } from "./infrastructure/ecash/wallet";
 
+export type { Env } from "./infrastructure/ecash/keyring";
+export {
+  ENV_MNEMONIC,
+  ENV_NETWORK,
+  ENV_PASSPHRASE,
+  InvalidNetworkError,
+  MissingMnemonicError,
+  loadWallet,
+} from "./infrastructure/ecash/keyring";
+
 export type { FundingCoin, FundingPolicy, FundingStatus } from "./domain/funding";
 export { assessFunding } from "./domain/funding";
 
