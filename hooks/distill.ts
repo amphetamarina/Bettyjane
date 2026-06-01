@@ -40,6 +40,38 @@ function extractText(content: Content): string {
   return "";
 }
 
+interface MemoryOpsEnvelope {
+  readonly is_error?: boolean;
+  readonly structured_output?: { readonly remember?: unknown };
+}
+
+/**
+ * The notes to remember from a distiller's reply. The reply is the JSON
+ * envelope `claude --output-format json` prints, carrying the schema-validated
+ * memory-ops block in `structured_output`. Each note is trimmed and capped to
+ * the on-chain byte budget; blank and non-string entries are dropped. Throws
+ * when the reply is not the expected JSON, reports an error, or lacks a
+ * remember array, so the caller can decline to write rather than mint garbage.
+ */
+export function parseMemoryOps(claudeStdout: string, maxBytes: number): string[] {
+  let envelope: MemoryOpsEnvelope;
+  try {
+    envelope = JSON.parse(claudeStdout);
+  } catch {
+    throw new Error("distiller output was not JSON");
+  }
+  if (envelope.is_error) throw new Error("distiller reported an error");
+  const remember = envelope.structured_output?.remember;
+  if (!Array.isArray(remember)) throw new Error("distiller output missing structured_output.remember");
+  const notes: string[] = [];
+  for (const item of remember) {
+    if (typeof item !== "string") continue;
+    const trimmed = item.trim();
+    if (trimmed) notes.push(truncateToBytes(trimmed, maxBytes));
+  }
+  return notes;
+}
+
 interface RenderedEntry {
   readonly role: "user" | "assistant";
   readonly text: string;
