@@ -42,3 +42,44 @@ export function cosineSimilarity(a: Vector, b: Vector): number {
   if (normA === 0 || normB === 0) return 0;
   return dot / (Math.sqrt(normA) * Math.sqrt(normB));
 }
+
+export class EmbeddingIndex {
+  private readonly vectors = new Map<string, Vector>();
+
+  get size(): number {
+    return this.vectors.size;
+  }
+
+  has(coinId: string): boolean {
+    return this.vectors.has(coinId);
+  }
+
+  ids(): string[] {
+    return [...this.vectors.keys()];
+  }
+
+  get(coinId: string): Vector | undefined {
+    const vector = this.vectors.get(coinId);
+    return vector === undefined ? undefined : [...vector];
+  }
+
+  upsert(coinId: string, vector: Vector): void {
+    this.vectors.set(coinId, [...vector]);
+  }
+
+  delete(coinId: string): boolean {
+    return this.vectors.delete(coinId);
+  }
+
+  toJSON(): Record<string, number[]> {
+    const data: Record<string, number[]> = {};
+    for (const [coinId, vector] of this.vectors) data[coinId] = [...vector];
+    return data;
+  }
+
+  static fromJSON(data: Record<string, Vector>): EmbeddingIndex {
+    const index = new EmbeddingIndex();
+    for (const [coinId, vector] of Object.entries(data)) index.upsert(coinId, vector);
+    return index;
+  }
+}
