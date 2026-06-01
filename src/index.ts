@@ -4,6 +4,9 @@ export { EmptyMemoError, memory, pin, pointer, text } from "./domain/memo";
 export type { Outpoint } from "./domain/coin-id";
 export { InvalidCoinIdError, coinId, parseCoinId } from "./domain/coin-id";
 
+export type { Embedder, ScoredCoin, Vector } from "./domain/embedding-index";
+export { DimensionMismatchError, EmbeddingIndex, cosineSimilarity } from "./domain/embedding-index";
+
 export type { Author } from "./domain/author";
 export { AUTHORS, authorOf, kindOf } from "./domain/author";
 
