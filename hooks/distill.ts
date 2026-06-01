@@ -30,6 +30,18 @@ export function truncateToBytes(value: string, maxBytes: number): string {
   return out;
 }
 
+/**
+ * Like {@link truncateToBytes}, but when it has to cut, it backs up to the last
+ * word boundary so a memory never ends mid-word. Falls back to the hard byte
+ * cut when there is no earlier space to retreat to.
+ */
+export function truncateToBytesAtWord(value: string, maxBytes: number): string {
+  const cut = truncateToBytes(value, maxBytes);
+  if (cut.length === value.length) return cut;
+  const lastSpace = cut.lastIndexOf(" ");
+  return lastSpace > 0 ? cut.slice(0, lastSpace) : cut;
+}
+
 function extractText(content: Content): string {
   if (typeof content === "string") return content;
   if (Array.isArray(content)) {
@@ -50,8 +62,8 @@ interface MemoryOpsEnvelope {
  * The notes to remember from a distiller's reply. The reply is the JSON
  * envelope `claude --output-format json` prints, carrying the schema-validated
  * memory-ops block in `structured_output`. Each note is trimmed and capped to
- * the on-chain byte budget; blank and non-string entries are dropped. Throws
- * when the reply is not the expected JSON, reports an error, or lacks a
+ * the byte budget at a word boundary; blank and non-string entries are dropped.
+ * Throws when the reply is not the expected JSON, reports an error, or lacks a
  * remember array, so the caller can decline to write rather than mint garbage.
  */
 export function parseMemoryOps(claudeStdout: string, maxBytes: number): string[] {
@@ -68,7 +80,7 @@ export function parseMemoryOps(claudeStdout: string, maxBytes: number): string[]
   for (const item of remember) {
     if (typeof item !== "string") continue;
     const trimmed = item.trim();
-    if (trimmed) notes.push(truncateToBytes(trimmed, maxBytes));
+    if (trimmed) notes.push(truncateToBytesAtWord(trimmed, maxBytes));
   }
   return notes;
 }
