@@ -1,6 +1,6 @@
-import { MemoReader } from "../src/infrastructure/ecash/reader";
-import { networkConfig, type Network } from "../src/infrastructure/ecash/network";
-import { toMemoryView, type MemoryView } from "./view";
+import { MemoReader } from "../src/infrastructure/ecash/reader.js";
+import { networkConfig, type Network } from "../src/infrastructure/ecash/network.js";
+import { toMemoryView, type MemoryView } from "./view.js";
 
 export interface AddressMemories {
   readonly address: string;

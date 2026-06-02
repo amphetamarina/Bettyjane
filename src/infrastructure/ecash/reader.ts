@@ -1,10 +1,10 @@
 import { Script, fromHex, toHex } from "ecash-lib";
 import { ChronikClient } from "chronik-client";
-import type { Memo } from "../../domain/memo";
-import { decodeMemo } from "./memo-codec";
-import { DUST_SATS, TXID_BYTES } from "./protocol";
-import { MalformedMemoError } from "./errors";
-import { networkConfig, type Network, type NetworkConfig } from "./network";
+import type { Memo } from "../../domain/memo.js";
+import { decodeMemo } from "./memo-codec.js";
+import { DUST_SATS, TXID_BYTES } from "./protocol.js";
+import { MalformedMemoError } from "./errors.js";
+import { networkConfig, type Network, type NetworkConfig } from "./network.js";
 
 /**
  * Reading the live memory: the unspent dust coins at an address are what the
