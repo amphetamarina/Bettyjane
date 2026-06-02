@@ -141,6 +141,117 @@ describe("Minter.remember", () => {
   });
 });
 
+describe("Minter.mintData", () => {
+  test("broadcasts an OP_RETURN-only tx with no dust memo coin", async () => {
+    const { minter, broadcasts } = harness([coin(10_000n)]);
+
+    const { rawTx } = await minter.mintData(memory(text("a chunk of text")), SIGNER);
+
+    expect(broadcasts).toHaveLength(1);
+    const outputs = Tx.deser(rawTx).outputs;
+    expect(outputs).toHaveLength(2); // OP_RETURN + change, no dust coin
+    expect(outputs[OP_RETURN_VOUT]!.sats).toBe(0n);
+    expect(decodeMemo(outputs[OP_RETURN_VOUT]!.script)).toEqual(memory(text("a chunk of text")));
+    expect(outputs[1]!.sats).toBeGreaterThan(DUST_SATS); // change, not a dust coin
+  });
+});
+
+describe("Minter.remember with large content", () => {
+  const longText = "x".repeat(500); // > MAX_PAYLOAD_BYTES (211): needs chunking
+
+  test("splits into data-chunk txs plus a head pointer coin naming them", async () => {
+    const { minter, broadcasts } = harness([coin(1_000_000n)]);
+
+    const result = await minter.remember(longText, SIGNER);
+
+    // 3 chunks of <=211 bytes for 500 bytes, then 1 head pointer tx.
+    expect(broadcasts).toHaveLength(4);
+
+    const chunkTxids: string[] = [];
+    let rejoined = "";
+    for (const raw of broadcasts.slice(0, 3)) {
+      const tx = Tx.deser(raw);
+      expect(tx.outputs).toHaveLength(2); // chunks carry no dust coin
+      const memo = decodeMemo(tx.outputs[OP_RETURN_VOUT]!.script)!;
+      expect(memo.content.type).toBe("text");
+      if (memo.content.type === "text") rejoined += memo.content.text;
+      chunkTxids.push(tx.txid());
+    }
+    expect(rejoined).toBe(longText);
+
+    const head = Tx.deser(result.rawTx);
+    expect(head.outputs[MEMO_COIN_VOUT]!.sats).toBe(DUST_SATS); // head is a real memory coin
+    const headMemo = decodeMemo(head.outputs[OP_RETURN_VOUT]!.script)!;
+    expect(headMemo.content.type).toBe("pointer");
+    if (headMemo.content.type === "pointer") {
+      expect(Buffer.from(headMemo.content.pointer).toString("hex")).toBe(chunkTxids.join(""));
+    }
+  });
+
+  test("still mints a single inline text coin when the note fits", async () => {
+    const { minter, broadcasts } = harness([coin(10_000n)]);
+
+    const result = await minter.remember("short enough to fit inline", SIGNER);
+
+    expect(broadcasts).toHaveLength(1);
+    expect(result.memo).toEqual(memory(text("short enough to fit inline")));
+  });
+});
+
+/** A CoinSource whose coins depend on the queried address, for cross-author tests. */
+function addressAwareHarness(byAddress: Record<string, SpendableCoin[]>): { minter: Minter } {
+  const source: CoinSource = { spendableCoins: async (address) => byAddress[address] ?? [] };
+  const broadcaster: Broadcaster = {
+    broadcast: async (rawTx) => ({ txid: Tx.deser(rawTx).txid() }),
+  };
+  return { minter: new Minter(source, broadcaster) };
+}
+
+describe("Minter.pin and unpin", () => {
+  test("pin mints a pin-kind coin carrying the note", async () => {
+    const { minter } = harness([coin(10_000n)]);
+
+    const result = await minter.pin("standing: cite dates", SIGNER);
+
+    expect(result.memo).toEqual(pin(text("standing: cite dates")));
+    expect(decodeMemo(Tx.deser(result.rawTx).outputs[OP_RETURN_VOUT]!.script)).toEqual(
+      pin(text("standing: cite dates")),
+    );
+  });
+
+  test("unpin spends the named coin", async () => {
+    const { minter, broadcasts } = harness([coin(10_000n, 0), coin(DUST_SATS, 1)]);
+
+    const result = await minter.unpin(coinId(outpointAt(1)), SIGNER);
+
+    expect(broadcasts).toHaveLength(1);
+    expect(result.outpoint).toEqual(outpointAt(1));
+  });
+});
+
+describe("signature permission (AMP-213)", () => {
+  test("the agent key cannot spend a human pin", async () => {
+    const wallet = Wallet.fromMnemonic(PHRASE, { prefix: "ectest" });
+    const human = wallet.signer("human");
+    const agent = wallet.signer("agent");
+    const pinOutpoint = { txid: "22".repeat(32), outIdx: 1 };
+    const { minter } = addressAwareHarness({
+      [human.address]: [
+        { outpoint: pinOutpoint, sats: DUST_SATS },
+        { outpoint: { txid: "22".repeat(32), outIdx: 0 }, sats: 10_000n },
+      ],
+      [agent.address]: [{ outpoint: { txid: "33".repeat(32), outIdx: 0 }, sats: 10_000n }],
+    });
+
+    // The agent's spend only consults the agent's own address, where the pin is absent.
+    await expect(minter.forget(coinId(pinOutpoint), agent)).rejects.toBeInstanceOf(
+      MemoCoinNotFoundError,
+    );
+    // The human, who holds the pin at their address, can drop it.
+    await expect(minter.unpin(coinId(pinOutpoint), human)).resolves.toBeDefined();
+  });
+});
+
 describe("Minter.mintAll", () => {
   test("mints the initial pins in order, one broadcast each", async () => {
     const { minter, broadcasts } = harness([coin(100_000n)]);

@@ -12,10 +12,8 @@
 
 import "ecash-lib/dist/initNodeJs.js";
 import { unlinkSync } from "node:fs";
-import { MAX_PAYLOAD_BYTES, Minter, loadWallet, type Network } from "../src/index";
+import { MAX_MEMORY_BYTES, Minter, loadWallet, type Network } from "../src/index";
 import { distillWithClaude } from "./distiller";
-
-const MEMO_BUDGET = MAX_PAYLOAD_BYTES - 40;
 
 async function main(): Promise<void> {
   const turnFile = process.argv[2];
@@ -30,7 +28,7 @@ async function main(): Promise<void> {
 
   let notes: string[];
   try {
-    notes = await distillWithClaude(turn, { maxBytes: MEMO_BUDGET });
+    notes = await distillWithClaude(turn, { maxBytes: MAX_MEMORY_BYTES });
   } catch (error) {
     process.stderr.write(`bettyjane: distiller unavailable, remembered nothing (${error})\n`);
     return;

@@ -63,7 +63,17 @@ function parseArgs(argv: readonly string[]): Options {
 async function fetchMemories(options: Options) {
   const reader = MemoReader.fromNetwork(networkConfig(options.network));
   const coins = await reader.listLiveCoins(options.address);
-  const memories = coins.map((coin) => toMemoryView(coin, options.network));
+  const memories = await Promise.all(
+    coins.map(async (coin) => {
+      if (coin.memo.content.type !== "pointer") return toMemoryView(coin, options.network);
+      try {
+        return toMemoryView(coin, options.network, await reader.resolveText(coin));
+      } catch {
+        // A chunk that won't resolve falls back to the raw pointer hex view.
+        return toMemoryView(coin, options.network);
+      }
+    }),
+  );
   return { address: options.address, network: options.network, memories };
 }
 

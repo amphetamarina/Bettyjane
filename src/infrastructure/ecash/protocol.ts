@@ -49,6 +49,15 @@ const PUSH_PREFIX_BYTES = 2;
 export const MAX_PAYLOAD_BYTES =
   OP_RETURN_MAX_BYTES - headerScriptBytes() - PUSH_PREFIX_BYTES;
 
+/** A transaction id is 32 bytes; a pointer payload is a run of them. */
+export const TXID_BYTES = 32;
+
+/** Most chunk txids that fit one pointer payload, hence the longest chain. */
+export const MAX_POINTER_CHUNKS = Math.floor(MAX_PAYLOAD_BYTES / TXID_BYTES);
+
+/** Largest memory text remember() can store: inline, or split across a pointer chain. */
+export const MAX_MEMORY_BYTES = MAX_POINTER_CHUNKS * MAX_PAYLOAD_BYTES;
+
 function headerScriptBytes(): number {
   return Script.fromOps([OP_RETURN, pushBytesOp(LOKAD_ID), pushBytesOp(new Uint8Array(3))])
     .bytecode.length;

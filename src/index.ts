@@ -6,6 +6,24 @@ export { InvalidCoinIdError, coinId, parseCoinId } from "./domain/coin-id";
 
 export type { Embedder, ScoredCoin, Vector } from "./domain/embedding-index";
 export { DimensionMismatchError, EmbeddingIndex, cosineSimilarity } from "./domain/embedding-index";
+export { HashEmbedder, hashEmbed } from "./domain/hash-embedder";
+export type { IndexEntry, RelevanceQuery } from "./domain/retrieval";
+export { DEFAULT_MAX_WORKING, buildIndex, retrieveRelevant } from "./domain/retrieval";
+
+export type { VectoredMemory } from "./domain/consolidate";
+export { planConsolidation } from "./domain/consolidate";
+
+export type {
+  LoadMemoryOptions,
+  LoadedCoin,
+  LoadedMemory,
+  MemoryAddresses,
+  MemoryOps,
+  MemorySource,
+  MemoryWriter,
+  SaveResult,
+} from "./application/memory";
+export { loadMemory, saveMemory } from "./application/memory";
 
 export type { Author } from "./domain/author";
 export { AUTHORS, authorOf, kindOf } from "./domain/author";
@@ -62,7 +80,15 @@ export type { LiveCoin, MemoCoinSource, UnspentCoin } from "./infrastructure/eca
 export { MemoReader } from "./infrastructure/ecash/reader";
 
 export { decodeMemo, encodeMemo, isMemoScript } from "./infrastructure/ecash/memo-codec";
-export { DUST_SATS, LOKAD_ID, MAX_PAYLOAD_BYTES, PROTOCOL_VERSION } from "./infrastructure/ecash/protocol";
+export {
+  DUST_SATS,
+  LOKAD_ID,
+  MAX_MEMORY_BYTES,
+  MAX_PAYLOAD_BYTES,
+  MAX_POINTER_CHUNKS,
+  PROTOCOL_VERSION,
+  TXID_BYTES,
+} from "./infrastructure/ecash/protocol";
 export {
   MalformedMemoError,
   MemoCodecError,
