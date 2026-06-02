@@ -1,0 +1,160 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Bettyjane explorer</title>
+    <style>
+      :root {
+        color-scheme: light dark;
+        --bg: #0f1115;
+        --card: #1a1d24;
+        --field: #11141b;
+        --muted: #8b93a7;
+        --text: #e7ebf3;
+        --pin: #f5a623;
+        --memory: #4aa3ff;
+        --live: #3ddc84;
+        --spent: #6b7280;
+        --border: #262a33;
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        font: 15px/1.5 ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+        background: var(--bg);
+        color: var(--text);
+        padding: 2rem 1.25rem 4rem;
+      }
+      header, .controls, main, footer { max-width: 980px; margin-left: auto; margin-right: auto; }
+      header { margin-bottom: 1.25rem; }
+      h1 { margin: 0 0 0.25rem; font-size: 1.4rem; letter-spacing: 0.01em; }
+      .sub { color: var(--muted); font-size: 0.9rem; }
+      .controls {
+        display: grid;
+        grid-template-columns: 1fr 1fr auto;
+        gap: 0.75rem;
+        align-items: end;
+        margin-bottom: 1.5rem;
+      }
+      .field { display: flex; flex-direction: column; gap: 0.3rem; min-width: 0; }
+      .field label { font-size: 0.74rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); }
+      .field label .dot { display: inline-block; width: 0.55rem; height: 0.55rem; border-radius: 999px; margin-right: 0.35rem; vertical-align: middle; }
+      .field label .dot.agent { background: var(--memory); }
+      .field label .dot.human { background: var(--pin); }
+      input, select {
+        font: inherit;
+        background: var(--field);
+        color: var(--text);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 0.5rem 0.6rem;
+        min-width: 0;
+      }
+      input { font-family: ui-monospace, monospace; font-size: 0.86rem; }
+      input:focus, select:focus { outline: none; border-color: var(--memory); }
+      .controls .actions { display: flex; gap: 0.5rem; }
+      button {
+        font: inherit;
+        font-weight: 600;
+        cursor: pointer;
+        background: var(--memory);
+        color: #08121f;
+        border: none;
+        border-radius: 8px;
+        padding: 0.55rem 1rem;
+      }
+      button:hover { filter: brightness(1.08); }
+      .columns { display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; align-items: start; }
+      .column h2 { font-size: 0.95rem; margin: 0 0 0.25rem; display: flex; align-items: center; gap: 0.5rem; }
+      .column h2 .dot { width: 0.6rem; height: 0.6rem; border-radius: 999px; }
+      .column h2 .dot.agent { background: var(--memory); }
+      .column h2 .dot.human { background: var(--pin); }
+      .column .count { color: var(--muted); font-size: 0.82rem; margin: 0 0 0.85rem; }
+      .stack { display: grid; gap: 0.85rem; }
+      .card {
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-left-width: 4px;
+        border-radius: 10px;
+        padding: 0.9rem 1.05rem;
+      }
+      .card.pin { border-left-color: var(--pin); }
+      .card.memory { border-left-color: var(--memory); }
+      .row { display: flex; align-items: center; gap: 0.55rem; flex-wrap: wrap; margin-bottom: 0.5rem; }
+      .tag {
+        font-size: 0.72rem;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        padding: 0.12rem 0.5rem;
+        border-radius: 999px;
+        font-weight: 600;
+      }
+      .tag.pin { background: rgba(245, 166, 35, 0.16); color: var(--pin); }
+      .tag.memory { background: rgba(74, 163, 255, 0.16); color: var(--memory); }
+      .tag.live { background: rgba(61, 220, 132, 0.16); color: var(--live); }
+      .tag.spent { background: rgba(107, 114, 128, 0.18); color: var(--spent); }
+      .author { color: var(--muted); font-size: 0.82rem; }
+      .content { font-size: 1.02rem; white-space: pre-wrap; word-break: break-word; }
+      .content.pointer { font-family: ui-monospace, monospace; color: var(--muted); font-size: 0.9rem; }
+      .viapointer { margin-top: 0.4rem; font-size: 0.78rem; color: var(--muted); }
+      .meta { margin-top: 0.55rem; font-size: 0.78rem; color: var(--muted); }
+      .meta a { color: inherit; text-decoration: underline; }
+      .outpoint { font-family: ui-monospace, monospace; }
+      .empty, .error { color: var(--muted); padding: 1.5rem 0.25rem; font-size: 0.9rem; }
+      .error { color: #ff6b6b; }
+      footer { margin-top: 2rem; color: var(--muted); font-size: 0.78rem; }
+      @media (max-width: 760px) {
+        .controls { grid-template-columns: 1fr; }
+        .columns { grid-template-columns: 1fr; }
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>Bettyjane memory</h1>
+      <div class="sub">
+        Live, unspent memo coins at each address &mdash; the team's memory right now.
+        The chain keeps the full history; this shows only what is remembered today.
+      </div>
+    </header>
+
+    <form class="controls" id="controls">
+      <div class="field">
+        <label for="agent"><span class="dot agent"></span>Agent address (working memories)</label>
+        <input id="agent" name="agent" placeholder="ecash:qq3u…" autocomplete="off" spellcheck="false" />
+      </div>
+      <div class="field">
+        <label for="human"><span class="dot human"></span>Human address (durable pins)</label>
+        <input id="human" name="human" placeholder="ecash:qpry…" autocomplete="off" spellcheck="false" />
+      </div>
+      <div class="field">
+        <label for="network">Network</label>
+        <div class="actions">
+          <select id="network" name="network">
+            <option value="mainnet">mainnet</option>
+            <option value="testnet">testnet</option>
+            <option value="regtest">regtest</option>
+          </select>
+          <button type="submit">Watch</button>
+        </div>
+      </div>
+    </form>
+
+    <main class="columns">
+      <section class="column">
+        <h2><span class="dot human"></span>Pins <span class="author">· human · durable</span></h2>
+        <p class="count" id="human-count"></p>
+        <div class="stack" id="human-stack"></div>
+      </section>
+      <section class="column">
+        <h2><span class="dot agent"></span>Memories <span class="author">· agent · working</span></h2>
+        <p class="count" id="agent-count"></p>
+        <div class="stack" id="agent-stack"></div>
+      </section>
+    </main>
+
+    <footer id="status"></footer>
+    <script src="/app.js"></script>
+  </body>
+</html>
