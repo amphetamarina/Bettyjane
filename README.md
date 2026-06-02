@@ -1,36 +1,67 @@
 # Bettyjane
 
-Persistent, public, tamper-evident memory for a human-plus-agent team, stored as
-dust coins on eCash (XEC). Each memory is a tiny coin: the live coins at an
-address are what the team remembers now, and the chain is the full history of how
-that set changed. There are two authors with two keys — the agent mints churning
-working memories, the human mints durable pins — and every coin carries the
-signature of whoever wrote it, so authorship is provable and a pin cannot be
-erased by the agent's key.
+**A shared memory for a human and an AI agent, written in coins on a public
+blockchain.**
 
-This repository is the memory layer itself: deriving the two keys, watching an
-address for funding, encoding the on-chain memo format, and minting memo coins
-(build, sign, broadcast). The brain (an LLM) and the runner (your own loop or
-Claude Code hooks) live outside it.
+An LLM has amnesia. It forgets everything the moment a reply ends. Bettyjane gives
+the team a notebook so it doesn't have to — except the notebook is made of tiny
+coins on [eCash](https://e.cash) (XEC), and each coin is one memory.
 
-The full design and rationale are in [docs/INITIAL_SPEC.md](docs/INITIAL_SPEC.md).
+## The idea in one picture
+
+Picture a pile of coins on a table. That pile is the agent's mind right now.
+
+- **Remembering** lays a new coin on the table (with its text attached).
+- **Forgetting** picks a coin up and pockets it.
+- A **photo is taken at every change**, so you can always see what the table held
+  last week, even after coins are pocketed.
+
+The coins on the table right now are what the team *remembers today*. The album of
+photos — the blockchain — is the *full history of how that memory changed*. Read
+the memory in one call: list the unspent coins at an address. Nothing lives on
+your laptop; if the program crashes, the memory is still on the chain.
+
+## Two pens, one notebook
+
+The notebook has two authors, each with their own key and their own pile of coins:
+
+- **The agent** writes fast, churning **working memories** — what it picked up
+  this session.
+- **The human** writes rare, durable **pins** — corrections and standing
+  instructions the agent must not lose.
+
+Every coin is signed by whoever wrote it, so authorship is always provable. And
+because the human's pins live at the human's address, *the agent's key cannot
+erase them* — it can read a pin and obey it, never delete it. The signature is the
+only permission system there is.
+
+> Four verbs, split by key: the agent does `remember(note)` / `forget(id)`; the
+> human does `pin(note)` / `unpin(id)`.
+
+## What this repository is
+
+This is the **memory layer** — the notebook and the pens. It derives the two keys,
+watches an address for funding, encodes and decodes the on-chain format, mints and
+reads memory coins, picks a small relevant working set each turn, and tidies
+duplicates. The **brain** (an LLM) and the **runner** (your loop, or Claude Code's
+hooks) live outside it and call in.
+
+The full design — coin format, retrieval, capture/consolidate, the integration
+API, the road ahead — is in **[docs/SPEC.md](docs/SPEC.md)**.
 
 ## Status
 
-The v0.1.0 milestone is feature-complete. The library derives keys and addresses,
-observes funding, encodes and decodes the memo format, and mints and reads memory
-coins. The agent verbs `remember(note)` / `forget(id)` and the human verbs
-`pin(note)` / `unpin(id)` are implemented; large notes that exceed one coin are
-stored across a [pointer chain](docs/coin-format.md) and reassembled on read. The
-two-function integration API (`loadMemory` / `saveMemory`) plus an off-chain
-embedding index, a hashing embedder, and `retrieveRelevant` give a small working
-set each turn. Claude Code drives it all through hooks (load / capture /
-consolidate) with model-based distillation via the `claude` CLI, and the repo
-installs as a Claude Code plugin with `/pin` and `/unpin` commands. The `bj` CLI
-covers `inspect`, `pin`, `unpin`, and `init`. A runnable [`examples/`](examples)
-loop and a gated [end-to-end suite](docs/testnet-and-e2e.md) exercise it on chain.
-There is no published npm package yet — consume it as a library or plugin from
-this repo.
+The **v0.1.0** milestone is complete. The library derives keys and addresses,
+observes funding, encodes/decodes the memo format, and mints and reads memory
+coins. The four verbs are implemented; notes too large for one coin are split
+across a [pointer chain](docs/coin-format.md) and reassembled on read. The
+two-function integration API (`loadMemory` / `saveMemory`), an off-chain embedding
+index, a dependency-free embedder, and `retrieveRelevant` give a small working set
+each turn. Claude Code drives it through hooks (load / capture / consolidate), and
+the repo installs as a Claude Code plugin with `/pin` and `/unpin` commands. The
+`bj` CLI covers `inspect`, `pin`, `unpin`, and `init`, and a web explorer shows
+the live memory. There is no npm package yet — consume it as a library or plugin
+from this repo.
 
 ## Requirements
 
@@ -47,7 +78,7 @@ mise run typecheck  # type-check without emitting
 
 ## Inspector (CLI)
 
-A small `bj` tool (litcli style) for reading what actually landed on chain.
+A small `bj` tool for reading what actually landed on chain.
 
 ```bash
 # See the decoded pin / memory in any tx
@@ -57,24 +88,24 @@ bun bin/bj.ts inspect a8ef7cba751f22df120e3e8123cdde103303d567cca1fdb71bb6e07750
 bun bin/bj.ts inspect <txid> --json
 ```
 
-It prints the memo coin outpoint (`txid:1`), whether the coin is still live (unspent), the kind/content, and the raw OP_RETURN for verification. Use `--network testnet` for test coins.
-
-More commands (`mint`, address scanning, etc.) will grow into the full bootstrap CLI.
+It prints the memo coin outpoint (`txid:1`), whether the coin is still live
+(unspent), the kind/content, and the raw `OP_RETURN`. `bj init` shows both
+addresses, their funding, and the live memory; `bj pin` / `bj unpin` are the human
+verbs. Use `--network testnet` for test coins.
 
 ## Explorer (web)
 
-A tiny, dependency-free web view of the live memory at an address — durable
-human pins and working agent memories, formatted for a human reader. It is
-read-only.
+A read-only page that shows the live memory side by side — the human's durable
+pins and the agent's working memories — polling the chain so new writes appear
+without a reload.
 
 ```bash
-bun run watch <address> --network mainnet
+bun run watch                                   # enter addresses in the page
+bun run watch ecash:qq3u… --human ecash:qpry… -n mainnet   # pre-fill them
 ```
 
-This serves a local page (default `http://localhost:4173`) that polls the chain
-and renders every unspent memo coin as a card: kind, author, live/pending state,
-content, the coin outpoint, and a link to the block explorer. See
-[`explorer/`](explorer) for details.
+It serves a local page (default `http://localhost:4173`). It is also deployable to
+Vercel by importing the repo. See [`explorer/`](explorer).
 
 ## Library usage
 
@@ -123,12 +154,12 @@ either a private **regtest** node (no faucet, deterministic — what CI uses) or
 public **testnet**:
 
 - [`examples/full-loop.ts`](examples/full-loop.ts) — a narrated, runnable loop
-  (remember → list → forget). Honors `BJ_NETWORK` / `BJ_CHRONIK_URL`, so it works
-  against regtest or testnet. See [`examples/README.md`](examples/README.md).
+  (remember → list → forget). Honors `BJ_NETWORK` / `BJ_CHRONIK_URL`. See
+  [`examples/README.md`](examples/README.md).
 - [`test/e2e`](test/e2e) — a gated end-to-end suite that asserts the same flow on
-  chain. It is skipped unless `BJ_MNEMONIC` is set, so it never runs in the
-  default suite. The [`E2E (regtest)`](.github/workflows/e2e.yml) workflow runs it
-  against a regtest node with no faucet; you can also run it locally:
+  chain. It is skipped unless `BJ_MNEMONIC` is set. The
+  [`E2E (regtest)`](.github/workflows/e2e.yml) workflow runs it against a regtest
+  node with no faucet; you can also run it locally:
 
   ```bash
   # testnet (fund the wallet yourself)
@@ -139,37 +170,38 @@ public **testnet**:
     BJ_MNEMONIC="abandon ... about" mise run test-e2e
   ```
 
-There is no working public testnet faucet, so regtest is the recommended path;
-the loop also recycles funds by sweeping each forgotten coin's value back to the
-address. See [docs/testnet-and-e2e.md](docs/testnet-and-e2e.md) for the full
-funding and CI story.
+See [docs/testnet-and-e2e.md](docs/testnet-and-e2e.md) for the full funding and CI
+story.
 
 ## Claude Code hooks
 
 Drive Bettyjane straight from Claude Code with no custom runner: a SessionStart
-hook loads the team's memory into context, and an opt-in Stop hook remembers each
-turn on chain. Configure your wallet with `BJ_MNEMONIC` / `BJ_NETWORK`, enable
-writes with `BJ_CAPTURE=1`, and watch memories land. See
-[hooks/README.md](hooks/README.md) — including the mainnet "real, public, and
-permanent" warning.
+hook loads the team's memory into context, an opt-in Stop hook remembers each turn
+on chain, and a SessionEnd hook tidies duplicates. Configure your wallet with
+`BJ_MNEMONIC` / `BJ_NETWORK`, enable writes with `BJ_CAPTURE=1`, and watch memories
+land. See [hooks/README.md](hooks/README.md) — including the mainnet "real,
+public, and permanent" warning.
 
 ## Project layout
 
 ```
-bin/                CLI entrypoints (bj — the litcli-style inspector)
-examples/           runnable testnet scripts (the agent-verb loop)
-hooks/              Claude Code hooks (load on SessionStart, capture on Stop)
+bin/                CLI entrypoints (bj — inspect / pin / unpin / init)
+examples/           runnable scripts (the agent-verb loop)
+explorer/           the web view of live memory (local server + Vercel function)
+public/             the explorer's static page (served locally and on Vercel)
+hooks/              Claude Code hooks (load / capture / consolidate)
 src/
-  domain/           pure, chain-agnostic memory model (memo, author, funding)
+  domain/           pure, chain-agnostic model (memo, author, funding, retrieval)
+  application/      the integration API (loadMemory / saveMemory)
   infrastructure/
-    ecash/          eCash adapters: wallet, chronik, codec, minter, network
-test/               bun:test suites, one per module (e2e/ is gated, live testnet)
-docs/               design spec and per-subsystem notes
+    ecash/          eCash adapters: wallet, chronik, codec, minter, reader, network
+test/               bun:test suites, one per module (e2e/ is gated, live)
+docs/               the spec and per-subsystem notes
 ```
 
 ## Documentation
 
-- [docs/INITIAL_SPEC.md](docs/INITIAL_SPEC.md) — the full design and rationale
+- [docs/SPEC.md](docs/SPEC.md) — the full design and rationale
 - [docs/keys-and-addresses.md](docs/keys-and-addresses.md) — the two-key, two-author model
 - [docs/coin-format.md](docs/coin-format.md) — the on-chain memo (OP_RETURN) format
 - [docs/funding.md](docs/funding.md) — funding an address and waiting for it
