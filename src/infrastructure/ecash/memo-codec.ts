@@ -1,4 +1,4 @@
-import { OP_RETURN, Script, isPushOp, pushBytesOp, strToBytes } from "ecash-lib";
+import { OP_RETURN, Script, fromHex, isPushOp, pushBytesOp, strToBytes } from "ecash-lib";
 import type { Memo, MemoContent } from "../../domain/memo";
 import {
   LOKAD_ID,
@@ -64,6 +64,11 @@ export function decodeMemo(script: Script): Memo | null {
       : { type: "pointer", pointer: payload };
 
   return { kind, content };
+}
+
+/** Decode a memo from an output script's raw hex, e.g. as Chronik returns it. */
+export function decodeMemoHex(scriptHex: string): Memo | null {
+  return decodeMemo(new Script(fromHex(scriptHex)));
 }
 
 export function isMemoScript(script: Script): boolean {
