@@ -93,6 +93,21 @@ describe("fetchAddressMemories", () => {
     });
   });
 
+  test("orders memories latest first, with unconfirmed mempool coins ahead", async () => {
+    const r = reader(
+      [utxo(AA, DUST_SATS, 100), utxo(BB, DUST_SATS, 200), utxo(CC, DUST_SATS, -1)],
+      {
+        [AA]: [encodeMemo(memory(text("oldest"))), OWNER],
+        [BB]: [encodeMemo(memory(text("middle"))), OWNER],
+        [CC]: [encodeMemo(memory(text("newest, in mempool"))), OWNER],
+      },
+    );
+
+    const result = await fetchAddressMemories(ADDRESS, "mainnet", r);
+
+    expect(result.memories.map((m) => m.txid)).toEqual([CC, BB, AA]);
+  });
+
   test("returns an empty list for an address with no memo coins", async () => {
     const result = await fetchAddressMemories(ADDRESS, "regtest", reader([], {}));
     expect(result.memories).toEqual([]);
