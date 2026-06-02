@@ -1,4 +1,4 @@
-import type { Network } from "../src/index";
+import type { Network } from "../src/infrastructure/ecash/network";
 import { fetchAddressMemories } from "../explorer/memories";
 
 /**
@@ -7,19 +7,24 @@ import { fetchAddressMemories } from "../explorer/memories";
  * whether it runs under `bun run watch` or a Vercel deploy. Read-only.
  *
  * The req/res shapes are typed structurally to avoid a build-time dependency on
- * @vercel/node; Vercel populates req.query and the res helpers at runtime.
+ * @vercel/node. The whole body is wrapped so that any failure — including an
+ * unexpected one — comes back as JSON the page can render, never an opaque
+ * platform HTML 500.
  */
 
 export type QueryValue = string | string[] | undefined;
 
 interface ApiRequest {
-  readonly query: Record<string, QueryValue>;
+  readonly query?: Record<string, QueryValue>;
+  readonly url?: string;
 }
 
 interface ApiResponse {
   status(code: number): ApiResponse;
   json(body: unknown): void;
-  setHeader(name: string, value: string): void;
+  setHeader?(name: string, value: string): void;
+  statusCode?: number;
+  end?(body: string): void;
 }
 
 const NETWORKS: readonly Network[] = ["mainnet", "testnet", "regtest"];
@@ -41,18 +46,33 @@ export function parseMemoriesQuery(query: Record<string, QueryValue>): {
   };
 }
 
-export default async function handler(req: ApiRequest, res: ApiResponse): Promise<void> {
-  const { address, network } = parseMemoriesQuery(req.query);
-  res.setHeader("Cache-Control", "no-store");
+/** Vercel populates req.query; fall back to parsing req.url so we never throw. */
+function queryOf(req: ApiRequest): Record<string, QueryValue> {
+  if (req.query) return req.query;
+  const search = req.url?.includes("?") ? req.url.slice(req.url.indexOf("?")) : "";
+  return Object.fromEntries(new URLSearchParams(search));
+}
 
-  if (!address) {
-    res.status(400).json({ error: "address is required" });
-    return;
-  }
-
+/** Send a JSON response, falling back to the raw stream if the helpers are absent. */
+function send(res: ApiResponse, code: number, body: unknown): void {
   try {
-    res.status(200).json(await fetchAddressMemories(address, network));
+    res.setHeader?.("Cache-Control", "no-store");
+    res.status(code).json(body);
+  } catch {
+    res.statusCode = code;
+    res.end?.(JSON.stringify(body));
+  }
+}
+
+export default async function handler(req: ApiRequest, res: ApiResponse): Promise<void> {
+  try {
+    const { address, network } = parseMemoriesQuery(queryOf(req));
+    if (!address) {
+      send(res, 400, { error: "address is required" });
+      return;
+    }
+    send(res, 200, await fetchAddressMemories(address, network));
   } catch (error) {
-    res.status(502).json({ error: error instanceof Error ? error.message : String(error) });
+    send(res, 502, { error: error instanceof Error ? error.message : String(error) });
   }
 }

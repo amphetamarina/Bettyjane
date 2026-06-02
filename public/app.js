@@ -48,7 +48,13 @@ function currentConfig() {
 async function fetchAddress(address, network) {
   const query = new URLSearchParams({ address, network });
   const response = await fetch(`/api/memories?${query.toString()}`);
-  const data = await response.json();
+  const body = await response.text();
+  let data;
+  try {
+    data = JSON.parse(body);
+  } catch {
+    throw new Error(body.trim().slice(0, 140) || `HTTP ${response.status}`);
+  }
   if (!response.ok) throw new Error(data.error || `HTTP ${response.status}`);
   return data.memories;
 }
