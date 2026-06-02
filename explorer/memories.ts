@@ -1,4 +1,5 @@
-import { MemoReader, networkConfig, type Network } from "../src/index";
+import { MemoReader } from "../src/infrastructure/ecash/reader";
+import { networkConfig, type Network } from "../src/infrastructure/ecash/network";
 import { toMemoryView, type MemoryView } from "./view";
 
 export interface AddressMemories {
@@ -13,6 +14,10 @@ export interface AddressMemories {
  * to the raw pointer hex. This is the one read path shared by the local server
  * and the serverless API so both render identically. The reader is injectable
  * for tests; by default it talks to the network's Chronik endpoints.
+ *
+ * The imports are the narrow reader/network modules rather than the src/index
+ * barrel on purpose: the serverless bundle then excludes the wallet, minter, and
+ * keyring (and their key/wasm code), which keeps the read-only function small.
  */
 export async function fetchAddressMemories(
   address: string,
