@@ -1,4 +1,4 @@
-import type { MemoKind } from "./memo";
+import type { MemoKind } from "./memo.js";
 
 /**
  * The two authors of the shared memory. The agent writes churning working

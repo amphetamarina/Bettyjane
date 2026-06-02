@@ -1,7 +1,7 @@
-import { authorOf, type Author } from "../src/domain/author";
-import type { MemoKind } from "../src/domain/memo";
-import type { LiveCoin } from "../src/infrastructure/ecash/reader";
-import type { Network } from "../src/infrastructure/ecash/network";
+import { authorOf, type Author } from "../src/domain/author.js";
+import type { MemoKind } from "../src/domain/memo.js";
+import type { LiveCoin } from "../src/infrastructure/ecash/reader.js";
+import type { Network } from "../src/infrastructure/ecash/network.js";
 
 export type MemoryContentView =
   | { readonly type: "text"; readonly text: string; readonly viaPointer: boolean }
