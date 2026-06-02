@@ -6,8 +6,8 @@ import {
   pushBytesOp,
   strToBytes,
 } from "ecash-lib";
-import type { MemoContent, MemoKind } from "../../domain/memo";
-import { MalformedMemoError } from "./errors";
+import type { MemoContent, MemoKind } from "../../domain/memo.js";
+import { MalformedMemoError } from "./errors.js";
 
 /** 4-byte app identifier ("BettyjaNE"), pushed right after OP_RETURN. */
 export const LOKAD_ID = strToBytes("BJNE");
