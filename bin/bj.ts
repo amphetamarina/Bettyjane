@@ -12,17 +12,17 @@
  * (BJ_MNEMONIC / BJ_NETWORK / BJ_PASSPHRASE); inspect needs no wallet.
  */
 
-import { ChronikClient } from "chronik-client";
-import { Script, fromHex } from "ecash-lib";
+import "ecash-lib/dist/initNodeJs.js";
 import {
   MemoReader,
   Minter,
   assessFunding,
-  decodeMemo,
+  decodeMemoHex,
   loadWallet,
   type Memo,
   type Network,
 } from "../src/index";
+import { ChronikClient } from "chronik-client";
 import { networkConfig } from "../src/infrastructure/ecash/network";
 import { DUST_SATS } from "../src/infrastructure/ecash/protocol";
 import { MalformedMemoError, UnsupportedVersionError } from "../src/infrastructure/ecash/errors";
@@ -135,31 +135,37 @@ async function runInit(args: string[]): Promise<void> {
   const wallet = walletFor(network);
   const human = wallet.address("human");
   const agent = wallet.address("agent");
-  console.log(`Bettyjane wallet (${network})`);
-  console.log(`  human / pin address:    ${human}`);
-  console.log(`  agent / memory address: ${agent}`);
-
   const config = networkConfig(network);
   const client = new ChronikClient([...config.chronikUrls]);
-  const { utxos } = await client.address(agent).utxos();
-  const funding = assessFunding(
-    utxos.map((u) => ({ sats: u.sats, confirmed: u.blockHeight !== -1 })),
-    { minimumSats: DUST_SATS * 3n }, // a pin's dust plus headroom for the fee
-  );
-  console.log(`  agent funding: ${funding.totalSats} sats (${funding.funded ? "funded" : "NOT funded"})`);
+
+  const fundingOf = async (address: string) => {
+    const { utxos } = await client.address(address).utxos();
+    return assessFunding(
+      utxos.map((u) => ({ sats: u.sats, confirmed: u.blockHeight !== -1 })),
+      { minimumSats: DUST_SATS * 3n }, // a coin's dust plus headroom for the fee
+    );
+  };
 
   const reader = MemoReader.fromNetwork(network);
-  const [livePins, memories] = await Promise.all([
+  const [humanFunding, agentFunding, livePins, memories] = await Promise.all([
+    fundingOf(human),
+    fundingOf(agent),
     reader.listLiveCoins(human),
     reader.listLiveCoins(agent),
   ]);
-  console.log(`  live pins: ${livePins.length}, live memories: ${memories.length}`);
+
+  console.log(`Bettyjane wallet (${network})`);
+  console.log(`  human / pin address:    ${human}`);
+  console.log(`    funding: ${humanFunding.totalSats} sats (${humanFunding.funded ? "funded" : "NOT funded — fund this to pin"}), live pins: ${livePins.length}`);
+  console.log(`  agent / memory address: ${agent}`);
+  console.log(`    funding: ${agentFunding.totalSats} sats (${agentFunding.funded ? "funded" : "NOT funded — fund this to capture"}), live memories: ${memories.length}`);
 
   if (pins.length === 0) {
-    console.log("\nFund the agent address, then re-run with --pin to mint initial pins.");
+    console.log("\nFund the addresses above, then re-run with --pin to mint initial pins (signed with the human key).");
     return;
   }
-  if (!funding.funded) fail("\nAgent address is not funded yet; fund it before minting pins.");
+  // Pins are signed with the human key, so the human address must be funded.
+  if (!humanFunding.funded) fail("\nThe human/pin address is not funded yet; fund it before minting pins.");
 
   const results = await Minter.fromNetwork(network).mintAll(
     pins.map((p) => ({ kind: "pin" as const, content: { type: "text" as const, text: p } })),
@@ -251,7 +257,7 @@ async function inspectTx(txid: string, network: Network): Promise<InspectResult>
   }
 
   try {
-    const memo = decodeMemo(new Script(fromHex(opReturn.outputScript)));
+    const memo = decodeMemoHex(opReturn.outputScript);
     result.memo = memo;
     if (!memo) result.error = "Not a Bettyjane memo (different LOKAD ID or not OP_RETURN)";
   } catch (e: any) {
