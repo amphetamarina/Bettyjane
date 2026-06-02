@@ -182,6 +182,21 @@ on chain, and a SessionEnd hook tidies duplicates. Configure your wallet with
 land. See [hooks/README.md](hooks/README.md) — including the mainnet "real,
 public, and permanent" warning.
 
+### Install as a plugin
+
+The repo ships as a Claude Code plugin (hooks plus the `/pin` and `/unpin`
+commands) through a marketplace manifest, so you can install it once and have it
+active in every session:
+
+```bash
+/plugin marketplace add amphetamarina/Bettyjane   # or a local path to this repo
+/plugin install bettyjane@bettyjane
+```
+
+The hooks need `bun` on `PATH` and your wallet env vars. Loading memory needs
+only `BJ_MNEMONIC`; writing memory stays off until you also set `BJ_CAPTURE=1`,
+so an installed plugin never spends until you opt in.
+
 ## Project layout
 
 ```
