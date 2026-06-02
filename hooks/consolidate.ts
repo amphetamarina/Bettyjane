@@ -3,9 +3,10 @@
  * SessionEnd hook: tidy the agent's live memory when the session closes.
  *
  * Stop captures a memory per turn; SessionEnd consolidates the pile. It reads
- * the agent's live memory coins and forgets exact duplicates, keeping the newest
- * coin for each distinct (normalized) text. Forgetting sweeps the dust back to
- * the agent, so consolidation also recycles funding.
+ * the agent's live memories, embeds each, and forgets near-duplicates — grouped
+ * by similarity, so it collapses reworded repeats, not just exact matches —
+ * keeping one coin per cluster. Forgetting sweeps the dust back to the agent, so
+ * consolidation also recycles funding.
  *
  * Like capture, it is opt-in and best-effort: it does nothing unless BJ_CAPTURE
  * is truthy AND a wallet is configured, it never blocks shutdown (always exits
@@ -15,17 +16,30 @@
  */
 
 import "ecash-lib/dist/initNodeJs.js";
-import { MemoReader, Minter, coinId, loadWallet, type LiveCoin, type Network } from "../src/index";
-import { planForget, type MemoryCoin } from "./dedup";
+import {
+  HashEmbedder,
+  MemoReader,
+  Minter,
+  coinId,
+  loadWallet,
+  planConsolidation,
+  type LiveCoin,
+  type Network,
+  type VectoredMemory,
+} from "../src/index";
 
 const ENABLED = new Set(["1", "true", "yes"]);
+// Two memories at or above this cosine similarity are treated as one.
+const SIMILARITY_THRESHOLD = 0.9;
 
-function textMemories(coins: readonly LiveCoin[]): MemoryCoin[] {
-  const memories: MemoryCoin[] = [];
+async function vectoredMemories(
+  reader: MemoReader,
+  coins: readonly LiveCoin[],
+): Promise<VectoredMemory[]> {
+  const embedder = new HashEmbedder();
+  const memories: VectoredMemory[] = [];
   for (const coin of coins) {
-    if (coin.memo.content.type === "text") {
-      memories.push({ id: coinId(coin.outpoint), text: coin.memo.content.text });
-    }
+    memories.push({ id: coinId(coin.outpoint), vector: await embedder.embed(await reader.resolveText(coin)) });
   }
   return memories;
 }
@@ -37,14 +51,15 @@ async function main(): Promise<void> {
   const network = (process.env.BJ_NETWORK as Network) || "testnet";
   const wallet = loadWallet();
   const reader = MemoReader.fromNetwork(network);
-  const stale = planForget(textMemories(await reader.listLiveCoins(wallet.address("agent"))));
+  const coins = await reader.listLiveCoins(wallet.address("agent"));
+  const stale = planConsolidation(await vectoredMemories(reader, coins), SIMILARITY_THRESHOLD);
   if (stale.length === 0) return;
 
   const minter = Minter.fromNetwork(network);
   const signer = wallet.signer("agent");
   for (const id of stale) {
     const { txid } = await minter.forget(id, signer);
-    process.stderr.write(`bettyjane: forgot duplicate ${id} -> ${txid}\n`);
+    process.stderr.write(`bettyjane: forgot near-duplicate ${id} -> ${txid}\n`);
   }
 }
 

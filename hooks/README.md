@@ -21,21 +21,23 @@ memories land on chain as it works, and watch the pile get tidied when it ends.
   with a replacement system prompt and only user settings, so it stays cheap and
   the project's own Stop hook never fires inside it (capture can't recurse).
 - **`consolidate.ts`** — runs on **SessionEnd** (session close). Tidies the pile
-  that `capture.ts` laid down: forgets exact-duplicate memories, keeping the
-  newest coin for each distinct text. Forgetting sweeps the dust back, so this
-  also recycles funding. **Opt-in** (same `BJ_CAPTURE` gate).
+  that `capture.ts` laid down: embeds each live memory and forgets
+  near-duplicates grouped by similarity (so reworded repeats collapse, not just
+  exact matches), keeping one coin per cluster. Forgetting sweeps the dust back,
+  so this also recycles funding. **Opt-in** (same `BJ_CAPTURE` gate).
 - **`distill.ts`** — the pure turn-rendering and reply-parsing logic
-  (unit-tested).
-- **`dedup.ts`** — the pure duplicate-detection logic for consolidation
-  (unit-tested).
+  (unit-tested). Similarity grouping lives in `src/domain/consolidate.ts`.
 
 Capture is **remember-only** for now: the model writes new memories but never
 drops existing ones (`forgetIds` is always empty). Merging and dropping stale
 memories is the SessionEnd job. It needs the `claude` CLI on `PATH`; without it,
 capture mints nothing and logs to `hooks/.capture.log`.
 
-The wiring lives in [`.claude/settings.json`](../.claude/settings.json). Claude
-Code asks you to approve project hooks the first time it sees them.
+The wiring lives in [`.claude/settings.json`](../.claude/settings.json) for local
+development, and in [`hooks/hooks.json`](hooks.json) when the repo is installed as
+a Claude Code plugin (see [`.claude-plugin/plugin.json`](../.claude-plugin/plugin.json)),
+which also ships the `/pin` and `/unpin` commands. Claude Code asks you to approve
+project hooks the first time it sees them.
 
 ## ⚠️ On mainnet, memories are real, public, and permanent
 

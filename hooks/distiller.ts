@@ -16,7 +16,7 @@ import { parseMemoryOps } from "./distill";
 const SYSTEM_PROMPT = `You distill ONE turn of an AI agent's working session into durable notes for a shared, permanent, on-chain team memory.
 
 Return JSON with two arrays:
-- remember: short third-person notes (each under ~180 characters) about what was decided, learned, or done this turn that a future session would need to know. Write about the agent's work, not the user's exact words. Skip pleasantries, restating the prompt, and anything ephemeral. Return [] when nothing this turn is worth keeping; most turns are not.
+- remember: concise third-person notes about what was decided, learned, or done this turn that a future session would need to know. Prefer one or two crisp sentences per note; a longer note is stored across several coins, so never truncate a complete thought, but do not pad either. Write about the agent's work, not the user's exact words. Skip pleasantries, restating the prompt, and anything ephemeral. Return [] when nothing this turn is worth keeping; most turns are not.
 - forgetIds: always [].`;
 
 const MEMORY_OPS_SCHEMA = JSON.stringify({

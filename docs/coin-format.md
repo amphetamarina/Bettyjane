@@ -54,9 +54,27 @@ is ambiguous to parse. A 3-byte push never collapses.
   *byte* budget, not a character count (multibyte characters cost more). Derived as
   `223 − OP_RETURN(1) − LOKAD push(5) − HEADER push(4) − payload push prefix(2)`.
 - `POINTER`: a reference to content stored off-coin, for notes larger than the
-  inline limit. This format reserves the `CONTENT_TYPE` and carries the pointer's
-  raw bytes; the internal tag/txid structure of a pointer is defined by the
-  large-content scheme (AMP-208), layered on top without changing this wire format.
+  inline limit. The payload is a run of **32-byte transaction ids**, in order —
+  the chunk transactions the note was split across. Each chunk is a data-only
+  transaction (an `OP_RETURN` carrying a `MEMORY`/`TEXT` slice, with change but
+  **no dust coin**, so it never joins the live set), and the full note is the
+  chunks concatenated. A pointer payload holds at most
+  `MAX_POINTER_CHUNKS = floor(211 / 32) = 6` txids, so the longest storable
+  memory is `MAX_MEMORY_BYTES = 6 × 211 = 1266` bytes.
+
+### The large-content pointer scheme (AMP-208)
+
+`remember(text)` chooses the representation by size, transparently:
+
+- **≤ 211 bytes** → one inline `TEXT` memory coin (the common case).
+- **larger** → `chunkText` splits it into ≤211-byte pieces, each minted as a
+  data-only chunk transaction (`Minter.mintData`); the memory coin is then a
+  `POINTER` whose payload is those chunk txids in order.
+
+`MemoReader.resolveText(coin)` is the inverse: it returns inline text directly,
+or fetches a pointer's chunk transactions and concatenates them back into the
+original note. The off-coin chunks are permanent chain history; forgetting the
+pointer coin removes the memory from the live set as usual.
 
 ## API
 

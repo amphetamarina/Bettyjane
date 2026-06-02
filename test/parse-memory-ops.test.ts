@@ -24,6 +24,11 @@ describe("parseMemoryOps", () => {
     expect(Buffer.byteLength(out[0]!, "utf8")).toBeLessThanOrEqual(16);
   });
 
+  test("truncates at a word boundary rather than mid-word", () => {
+    const out = parseMemoryOps(envelope({ remember: ["alpha beta gamma delta"], forgetIds: [] }), 14);
+    expect(out).toEqual(["alpha beta"]);
+  });
+
   test("throws on output that is not JSON", () => {
     expect(() => parseMemoryOps("not json", 200)).toThrow();
   });
