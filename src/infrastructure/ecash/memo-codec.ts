@@ -1,5 +1,5 @@
 import { OP_RETURN, Script, fromHex, isPushOp, pushBytesOp, strToBytes } from "ecash-lib";
-import type { Memo, MemoContent } from "../../domain/memo";
+import type { Memo, MemoContent } from "../../domain/memo.js";
 import {
   LOKAD_ID,
   MAX_PAYLOAD_BYTES,
@@ -8,8 +8,8 @@ import {
   codeToKind,
   contentTypeToCode,
   kindToCode,
-} from "./protocol";
-import { MalformedMemoError, MemoTooLargeError, UnsupportedVersionError } from "./errors";
+} from "./protocol.js";
+import { MalformedMemoError, MemoTooLargeError, UnsupportedVersionError } from "./errors.js";
 
 /**
  * Layout: OP_RETURN <LOKAD "BJNE"> <[version, kind, contentType]> <payload>.

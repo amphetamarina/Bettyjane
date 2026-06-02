@@ -1,5 +1,5 @@
-import type { Network } from "../src/infrastructure/ecash/network";
-import { fetchAddressMemories } from "../explorer/memories";
+import type { Network } from "../src/infrastructure/ecash/network.js";
+import { fetchAddressMemories } from "../explorer/memories.js";
 
 /**
  * Vercel serverless endpoint: GET /api/memories?address=<ecash:...>&network=<net>.
