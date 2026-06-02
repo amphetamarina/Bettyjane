@@ -22,8 +22,10 @@ import { renderTurn } from "./distill";
 
 const ENABLED = new Set(["1", "true", "yes"]);
 // Bytes of turn text handed to the distiller. Bounds the model's input cost; the
-// user's ask sits at the head and survives truncation.
-const TURN_BUDGET = 6000;
+// user's ask sits at the head and survives truncation. Generous enough that a
+// long, substantive turn reaches the distiller whole, so it can mint several
+// notes rather than only what fit in a small head slice.
+const TURN_BUDGET = 16000;
 
 interface StopPayload {
   readonly transcript_path?: string;
