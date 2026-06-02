@@ -18,13 +18,18 @@ export interface AddressMemories {
  * The imports are the narrow reader/network modules rather than the src/index
  * barrel on purpose: the serverless bundle then excludes the wallet, minter, and
  * keyring (and their key/wasm code), which keeps the read-only function small.
+ *
+ * Memories come back latest first: just-minted mempool coins lead, then
+ * confirmed coins by descending block height, so the freshest memory is on top.
  */
 export async function fetchAddressMemories(
   address: string,
   network: Network,
   reader: MemoReader = MemoReader.fromNetwork(networkConfig(network)),
 ): Promise<AddressMemories> {
-  const coins = await reader.listLiveCoins(address);
+  const coins = (await reader.listLiveCoins(address)).sort(
+    (a, b) => recency(b.blockHeight) - recency(a.blockHeight),
+  );
   const memories = await Promise.all(
     coins.map(async (coin) => {
       if (coin.memo.content.type !== "pointer") return toMemoryView(coin, network);
@@ -36,4 +41,10 @@ export async function fetchAddressMemories(
     }),
   );
   return { address, network, memories };
+}
+
+const MEMPOOL_BLOCK_HEIGHT = -1;
+
+function recency(blockHeight: number): number {
+  return blockHeight === MEMPOOL_BLOCK_HEIGHT ? Infinity : blockHeight;
 }

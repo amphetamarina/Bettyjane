@@ -38,6 +38,7 @@ export interface LiveCoin {
   readonly outpoint: { readonly txid: string; readonly outIdx: number };
   readonly sats: bigint;
   readonly memo: Memo;
+  readonly blockHeight: number;
   readonly confirmed: boolean;
 }
 
@@ -102,6 +103,7 @@ export class MemoReader {
       outpoint: coin.outpoint,
       sats: coin.sats,
       memo,
+      blockHeight: coin.blockHeight,
       confirmed: coin.blockHeight !== MEMPOOL_BLOCK_HEIGHT,
     };
   }

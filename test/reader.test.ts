@@ -69,6 +69,7 @@ describe("MemoReader.listLiveCoins", () => {
     expect(coins[0]!.memo).toEqual(memo);
     expect(coins[0]!.outpoint).toEqual({ txid: AA, outIdx: 1 });
     expect(coins[0]!.sats).toBe(DUST_SATS);
+    expect(coins[0]!.blockHeight).toBe(100);
     expect(coins[0]!.confirmed).toBe(true);
   });
 

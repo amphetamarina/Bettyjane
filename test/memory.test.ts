@@ -11,7 +11,13 @@ import {
 } from "../src/index";
 
 function coin(txid: string, value: string): LiveCoin {
-  return { outpoint: { txid, outIdx: 1 }, sats: 546n, memo: memory(text(value)), confirmed: true };
+  return {
+    outpoint: { txid, outIdx: 1 },
+    sats: 546n,
+    memo: memory(text(value)),
+    blockHeight: 100,
+    confirmed: true,
+  };
 }
 
 function fakeSource(byAddress: Record<string, LiveCoin[]>): MemorySource {
