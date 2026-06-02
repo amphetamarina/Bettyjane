@@ -1,0 +1,7 @@
+{
+  "name": "bettyjane",
+  "owner": { "name": "Marina Rosa" },
+  "plugins": [
+    { "name": "bettyjane", "source": "./" }
+  ]
+}
