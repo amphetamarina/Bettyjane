@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { OP_RETURN, Script, pushBytesOp, strToBytes } from "ecash-lib";
+import { OP_RETURN, Script, pushBytesOp, strToBytes, toHex } from "ecash-lib";
 import {
   DUST_SATS,
   EmptyMemoError,
@@ -9,6 +9,7 @@ import {
   PROTOCOL_VERSION,
   UnsupportedVersionError,
   decodeMemo,
+  decodeMemoHex,
   encodeMemo,
   isMemoScript,
   memory,
@@ -16,6 +17,19 @@ import {
   pointer,
   text,
 } from "../src/index";
+
+describe("decodeMemoHex", () => {
+  test("decodes a memo from an output script's hex", () => {
+    const memo = memory(text("decoded from hex"));
+    const hex = toHex(encodeMemo(memo).bytecode);
+    expect(decodeMemoHex(hex)).toEqual(memo);
+  });
+
+  test("returns null for a non-memo script hex", () => {
+    const hex = toHex(new Script(strToBytes("not a memo")).bytecode);
+    expect(decodeMemoHex(hex)).toBeNull();
+  });
+});
 
 describe("encode/decode round-trips", () => {
   test("an agent memory note", () => {

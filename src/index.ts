@@ -79,7 +79,7 @@ export {
 export type { LiveCoin, MemoCoinSource, UnspentCoin } from "./infrastructure/ecash/reader";
 export { MemoReader } from "./infrastructure/ecash/reader";
 
-export { decodeMemo, encodeMemo, isMemoScript } from "./infrastructure/ecash/memo-codec";
+export { decodeMemo, decodeMemoHex, encodeMemo, isMemoScript } from "./infrastructure/ecash/memo-codec";
 export {
   DUST_SATS,
   LOKAD_ID,
