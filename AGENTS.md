@@ -2,7 +2,7 @@
 
 Guidance for agents and contributors working in this repository. For what
 Bettyjane is and how to use it, read [README.md](README.md); for the design,
-[docs/INITIAL_SPEC.md](docs/INITIAL_SPEC.md).
+[docs/SPEC.md](docs/SPEC.md).
 
 ## Commands
 
