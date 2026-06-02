@@ -6,6 +6,7 @@ const textCoin = (overrides: Partial<LiveCoin> = {}): LiveCoin => ({
   outpoint: { txid: "a".repeat(64), outIdx: 1 },
   sats: 546n,
   memo: { kind: "memory", content: { type: "text", text: "remember the milk" } },
+  blockHeight: 100,
   confirmed: true,
   ...overrides,
 });
