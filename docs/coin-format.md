@@ -37,7 +37,7 @@ Each `<...>` is a pushdata op. The whole script must stay within eCash's
 | --- | --- | --- |
 | 0 | `VERSION` | `0x01` (unsigned), `0x02` (author-signed, see below) |
 | 1 | `KIND` | `0x01` = `MEMORY` (agent), `0x02` = `PIN` (human) |
-| 2 | `CONTENT_TYPE` | `0x00` = `TEXT` (inline UTF-8), `0x01` = `POINTER` (off-coin reference) |
+| 2 | `CONTENT_TYPE` | `0x00` = `TEXT` (inline UTF-8), `0x01` = `POINTER` (off-coin reference), `0x02` = `ENCRYPTED` (ECIES ciphertext) |
 
 `KIND` records who authored the coin and its role in the two-author model: the
 agent's churning working memories vs. the human's durable pins. The permission to
@@ -90,6 +90,36 @@ the signature push). The minter signs inline `TEXT` notes that fit; longer notes
 and `POINTER` heads fall back to the unsigned v1 encoding. v1 coins remain valid
 and decode unchanged — `decodeMemo` accepts both versions and drops the signature;
 `decodeSignedMemo` / `verifyMemoAuthor` expose and check it.
+
+### Encrypted private memories (AMP-242)
+
+The chain is public, so the capture policy is to never write a secret. Encryption
+turns that from *exclude* into *protect*: a note can live on chain as ciphertext
+that only the holder of a key can read. A memory with `CONTENT_TYPE = ENCRYPTED`
+carries, as its payload, an **ECIES** blob:
+
+```
+ephemeralPubkey(33) ‖ iv(12) ‖ ciphertext(n) ‖ tag(16)
+```
+
+built from audited primitives — never a hand-rolled cipher:
+
+- **ECDH** over secp256k1 (`@noble/curves`) between a fresh ephemeral key and the
+  recipient's public key yields a shared secret;
+- **HKDF-SHA256** (`node:crypto`) derives a 32-byte key from it;
+- **AES-256-GCM** (`node:crypto`) encrypts and authenticates the note.
+
+The fresh ephemeral key makes each encryption unique; GCM's tag makes a wrong key
+or any tampering fail loudly rather than return garbage. `Minter.rememberPrivate`
+encrypts a note to a recipient pubkey (encrypt to your own pubkey to remember to
+yourself) and mints the ciphertext; decryption is a separate keyed step
+(`decryptWithSeckey`) done locally — the reader and explorer show `[encrypted]`
+without the key. Encrypted memos are unsigned and inline-only: a blob over
+`MAX_PAYLOAD_BYTES` is rejected (splitting encrypted notes across a pointer chain
+is a follow-up).
+
+This is **opt-in** — `rememberPrivate` is an explicit call, not wired into the
+automatic capture path, so nothing is encrypted to the chain without intent.
 
 ### Batching a turn's notes with eMPP (AMP-240)
 

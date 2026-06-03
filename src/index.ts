@@ -1,5 +1,7 @@
 export type { Memo, MemoContent, MemoKind } from "./domain/memo";
-export { EmptyMemoError, memory, pin, pointer, text } from "./domain/memo";
+export { EmptyMemoError, encrypted, memory, pin, pointer, text } from "./domain/memo";
+
+export { DecryptError, ECIES_OVERHEAD_BYTES, decryptWithSeckey, encryptToPubkey } from "./domain/crypto";
 
 export type { Outpoint } from "./domain/coin-id";
 export { InvalidCoinIdError, coinId, parseCoinId } from "./domain/coin-id";
