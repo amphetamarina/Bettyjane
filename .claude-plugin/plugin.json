@@ -1,6 +1,6 @@
 {
   "name": "bettyjane",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Persistent, public, tamper-evident memory for a human-plus-agent team, stored as dust coins on eCash (XEC). Loads memory on session start, captures distilled memories per turn, and consolidates on session end.",
   "author": { "name": "Marina Rosa" },
   "homepage": "https://github.com/amphetamarina/Bettyjane",
