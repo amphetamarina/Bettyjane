@@ -7,6 +7,9 @@ An LLM has amnesia. It forgets everything the moment a reply ends. Bettyjane giv
 the team a notebook so it doesn't have to — except the notebook is made of tiny
 coins on [eCash](https://e.cash) (XEC), and each coin is one memory.
 
+See a live memory right now at **[bettyjane.marina.cash](https://bettyjane.marina.cash)**,
+no install needed.
+
 ## The idea in one picture
 
 Picture a pile of coins on a table. That pile is the agent's mind right now.
@@ -114,22 +117,31 @@ verbs. Use `--network testnet` for test coins.
 
 ## Explorer (web)
 
-A read-only page with two views. **Explore** shows the live memory at one or two
-addresses side by side — the human's durable pins and the agent's working
-memories — polling the chain so new writes appear without a reload. Signed,
-encrypted, and 2-of-2 consensus memories are badged, and a **show forgotten**
-toggle reveals the whole album — every memory ever minted, including spent
-(forgotten) ones, reconstructed from the address history. **Discover** pools the
-whole network: every memory minted under the `BJNE` LOKAD id, across all agents,
-each attributed to the address that authored it.
+Live at **[bettyjane.marina.cash](https://bettyjane.marina.cash)**. Open it and
+you are looking at the memory as it stands right now, no install required. It is a
+read-only window with two views, like two ways of looking at the same table of
+coins:
+
+- **Explore** is one team's table. Type an agent address and a human address and
+  you see their live memory side by side: the human's durable pins and the agent's
+  working memories. The page keeps watching the chain, so fresh writes show up on
+  their own. Signed, encrypted, and 2-of-2 consensus coins each get a little badge,
+  and a **show forgotten** toggle opens the whole album, every memory ever minted,
+  including the ones that were later picked back up (spent).
+- **Discover** is everybody's table at once. It pools every memory minted under
+  the `BJNE` tag across the whole chain, no matter who wrote it, and labels each
+  one with the address that authored it. A public feed of what every Bettyjane
+  agent is remembering.
+
+Want your own copy? It is the same code that runs the hosted site:
 
 ```bash
 bun run watch                                   # enter addresses in the page
 bun run watch ecash:qq3u… --human ecash:qpry… -n mainnet   # pre-fill them
 ```
 
-It serves a local page (default `http://localhost:4173`). It is also deployable to
-Vercel by importing the repo. See [`explorer/`](explorer).
+It serves a local page (default `http://localhost:4173`), and it deploys to Vercel
+by importing the repo. See [`explorer/`](explorer).
 
 ## Library usage
 
@@ -219,15 +231,35 @@ public, and permanent" warning.
 
 ### Install as a plugin
 
-The repo ships as a Claude Code plugin — the same verbs exposed as skills
-(`/remember`, `/forget`, `/private`, `/consensus`, `/load`, `/capture`,
-`/consolidate`, `/pin`, `/unpin`) — through a marketplace manifest, so you can
-install it once and invoke memory from any session:
+The repo also ships as a Claude Code plugin: the same verbs, now as slash-command
+skills you can reach from any session. Install it once through the marketplace
+manifest:
 
 ```bash
 /plugin marketplace add amphetamarina/Bettyjane   # or a local path to this repo
 /plugin install bettyjane@bettyjane
 ```
+
+The nine skills, grouped by whose pen they use:
+
+- **`/load`** brings the team's current memory into context, the human's pins plus
+  a small working set of the agent's memories, so a session starts knowing what
+  you both remember.
+- **`/remember`** lays down a working note as an agent memory, signed with the
+  agent key.
+- **`/forget`** picks an agent memory back up by its coin id (`txid:1`); the chain
+  still keeps the history.
+- **`/pin`** writes a durable human note, signed with the human key, the kind the
+  agent must read and never lose.
+- **`/unpin`** lifts a human pin back off the table by its coin id (human key only).
+- **`/private`** remembers a note encrypted to your own key, so only the
+  ciphertext goes public and the plain text stays yours.
+- **`/consensus`** mints a shared-truth coin at a 2-of-2 address, one that neither
+  pen can write or forget without the other.
+- **`/capture`** distills the latest turn into notes and mints the keepers, the
+  manual version of the old turn-end hook.
+- **`/consolidate`** tidies the working set, folding near-duplicate memories down
+  to one coin each.
 
 The CLI needs `bun` on `PATH` and your wallet env vars (`BJ_MNEMONIC` /
 `BJ_NETWORK`). Reading memory needs only `BJ_MNEMONIC`; the write verbs spend real
