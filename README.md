@@ -63,6 +63,20 @@ the repo installs as a Claude Code plugin with `/pin` and `/unpin` commands. The
 the live memory. There is no npm package yet — consume it as a library or plugin
 from this repo.
 
+**Beyond v0.1.0**, four capabilities have shipped on top of the coin format, each
+backward compatible with existing coins (see [coin-format.md](docs/coin-format.md)):
+
+- **Content-signed memories (v2).** A memo can carry a recoverable ECDSA signature
+  over its content, so authorship is provable from the coin alone, not only in its
+  spend transaction. The reader and explorer report `authorVerified` per coin.
+- **Memory namespaces.** An author's memory can be partitioned into separate,
+  independently watchable addresses (one per project/topic) via BIP-44 address
+  indices; the default namespace reproduces the original address.
+- **eMPP batching.** A turn's notes can ride in one transaction as eMPP sections,
+  one dust coin per section, so each note stays independently forgettable.
+- **Encrypted private memories.** A note can live on chain as ECIES ciphertext,
+  readable only by the holder of the key — opt-in via `rememberPrivate`.
+
 ## Requirements
 
 - [mise](https://mise.jdx.dev) — pins the toolchain (Bun 1.2)
