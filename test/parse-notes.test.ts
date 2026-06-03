@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { parseNotes } from "../hooks/distill";
-import { distill } from "../hooks/distiller";
+import { parseNotes } from "../capture/turn";
+import { distill } from "../capture/distiller";
 
 describe("parseNotes (any-CLI distiller output)", () => {
   const cap = 1000;
