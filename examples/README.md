@@ -20,6 +20,31 @@ BJ_MNEMONIC="twelve word phrase ..." bun examples/full-loop.ts
 bun examples/full-loop.ts
 ```
 
+## features.ts
+
+A guided tour of the post-v0.1.0 features, using only the public API. Every step
+runs **offline** (no network, no funding), so it doubles as a "how to use each
+feature" reference you can run as-is:
+
+```bash
+bun examples/features.ts            # uses a throwaway phrase
+BJ_MNEMONIC="twelve word phrase ..." bun examples/features.ts
+```
+
+It covers, with the on-chain call for each shown in a comment:
+
+- **Content-signed memories** — `signingDigest` + `encodeSignedMemo`, then
+  `verifyMemoAuthor`. On chain: `minter.remember(note, signer)` signs inline text
+  automatically.
+- **Namespaces** — `wallet.address("agent", "billing")` derives a separate,
+  watchable address; the default namespace reproduces the original.
+- **eMPP batching** — `batchMemos` + `encodeMemoBatch` pack several notes into one
+  `OP_RETURN`. On chain: `minter.rememberBatch([...notes], signer)`.
+- **Encrypted private memories** — `encryptToPubkey` / `decryptWithSeckey` round
+  trip. On chain: `minter.rememberPrivate(note, recipientPubkey, signer)`.
+- **Consensus memories** — `consensusAddress([a, b])` is the 2-of-2 P2SH address.
+  On chain: `ConsensusMinter.fromNetwork(net).mint(consensus(text(note)), signers)`.
+
 ## Funding
 
 The script honors `BJ_NETWORK` (default testnet) and `BJ_CHRONIK_URL`, so you can
