@@ -65,6 +65,7 @@ export { ChronikGateway, FundingTimeoutError, systemClock } from "./infrastructu
 export type {
   Broadcaster,
   CoinSource,
+  MintBatchResult,
   MinterOptions,
   MintResult,
   SpendableCoin,
@@ -83,10 +84,13 @@ export { MemoReader } from "./infrastructure/ecash/reader";
 
 export type { SignedMemo } from "./infrastructure/ecash/memo-codec";
 export {
+  batchMemos,
   decodeMemo,
+  decodeMemoBatch,
   decodeMemoHex,
   decodeSignedMemo,
   encodeMemo,
+  encodeMemoBatch,
   encodeSignedMemo,
   isMemoScript,
   signingDigest,

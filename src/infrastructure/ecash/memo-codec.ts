@@ -1,9 +1,12 @@
 import {
   type Ecc,
   OP_RETURN,
+  OP_RETURN_MAX_BYTES,
   Script,
+  emppScript,
   fromHex,
   isPushOp,
+  parseEmppScript,
   pushBytesOp,
   sha256,
   shaRmd160,
@@ -81,6 +84,74 @@ export function encodeSignedMemo(memo: Memo, signature: Uint8Array): Script {
  */
 export function signingDigest(memo: Memo): Uint8Array {
   return digestOf(headerBytes(SIGNED_PROTOCOL_VERSION, memo), payloadOf(memo.content));
+}
+
+/**
+ * Encode several memos into one eCash Multipurpose Payload (eMPP) OP_RETURN so a
+ * whole turn's notes ride in a single transaction (AMP-240). Each memo becomes
+ * one eMPP section: `LOKAD ++ [version, kind, contentType] ++ payload`. The
+ * transaction lays one dust coin per section, so each note stays an
+ * independently forgettable coin. Batched sections are unsigned (v1).
+ *
+ * Throws {@link MemoTooLargeError} if the sections do not fit eCash's
+ * {@link OP_RETURN_MAX_BYTES} standardness limit; pack with {@link batchMemos}
+ * to avoid this.
+ */
+export function encodeMemoBatch(memos: readonly Memo[]): Script {
+  if (memos.length === 0) throw new MalformedMemoError("a memo batch needs at least one memo");
+  const sections = memos.map(memoSection);
+  const script = emppScript(sections);
+  if (script.bytecode.length > OP_RETURN_MAX_BYTES) {
+    throw new MemoTooLargeError(script.bytecode.length, OP_RETURN_MAX_BYTES);
+  }
+  return script;
+}
+
+/**
+ * Decode an eMPP batch OP_RETURN into its Bettyjane memos, in section order.
+ * Returns null when the script is not an eMPP OP_RETURN or carries no Bettyjane
+ * section. Foreign eMPP sections (a different LOKAD) are skipped so Bettyjane can
+ * share a transaction with other protocols. Throws on a malformed Bettyjane
+ * section.
+ */
+export function decodeMemoBatch(script: Script): Memo[] | null {
+  let sections: Uint8Array[] | undefined;
+  try {
+    sections = parseEmppScript(script);
+  } catch {
+    return null;
+  }
+  if (!sections) return null;
+  const memos = sections.filter(isOurSection).map(decodeSection);
+  return memos.length > 0 ? memos : null;
+}
+
+/**
+ * Greedily pack memos into batches that each fit one eMPP OP_RETURN. Returns a
+ * list of batches, preserving order, so a caller can mint one transaction per
+ * batch. A single memo that cannot fit a batch on its own is returned as a
+ * one-memo batch (the caller decides how to mint it).
+ */
+export function batchMemos(memos: readonly Memo[]): Memo[][] {
+  const batches: Memo[][] = [];
+  let current: Memo[] = [];
+  for (const memo of memos) {
+    if (current.length > 0 && !fitsBatch([...current, memo])) {
+      batches.push(current);
+      current = [];
+    }
+    current.push(memo);
+  }
+  if (current.length > 0) batches.push(current);
+  return batches;
+}
+
+function fitsBatch(memos: Memo[]): boolean {
+  try {
+    return emppScript(memos.map(memoSection)).bytecode.length <= OP_RETURN_MAX_BYTES;
+  } catch {
+    return false;
+  }
 }
 
 /**
@@ -189,6 +260,39 @@ export function isMemoScript(script: Script): boolean {
 
 function headerBytes(version: number, memo: Memo): Uint8Array {
   return Uint8Array.of(version, kindToCode(memo.kind), contentTypeToCode(memo.content.type));
+}
+
+/** One eMPP section's bytes: LOKAD ++ [version, kind, contentType] ++ payload. */
+function memoSection(memo: Memo): Uint8Array {
+  const payload = payloadOf(memo.content);
+  if (payload.length > MAX_PAYLOAD_BYTES) {
+    throw new MemoTooLargeError(payload.length, MAX_PAYLOAD_BYTES);
+  }
+  const header = headerBytes(PROTOCOL_VERSION, memo);
+  const section = new Uint8Array(LOKAD_ID.length + header.length + payload.length);
+  section.set(LOKAD_ID, 0);
+  section.set(header, LOKAD_ID.length);
+  section.set(payload, LOKAD_ID.length + header.length);
+  return section;
+}
+
+function isOurSection(section: Uint8Array): boolean {
+  return section.length >= LOKAD_ID.length && equalBytes(section.subarray(0, LOKAD_ID.length), LOKAD_ID);
+}
+
+function decodeSection(section: Uint8Array): Memo {
+  const header = section.subarray(LOKAD_ID.length, LOKAD_ID.length + 3);
+  if (header.length !== 3) throw new MalformedMemoError("eMPP section missing 3-byte header");
+  if (!SUPPORTED_VERSIONS.includes(header[0]!)) throw new UnsupportedVersionError(header[0]!);
+  const kind = codeToKind(header[1]!);
+  const contentType = codeToContentType(header[2]!);
+  const payload = section.subarray(LOKAD_ID.length + 3);
+  if (payload.length === 0) throw new MalformedMemoError("eMPP section missing payload");
+  const content: MemoContent =
+    contentType === "text"
+      ? { type: "text", text: new TextDecoder().decode(payload) }
+      : { type: "pointer", pointer: payload };
+  return { kind, content };
 }
 
 function payloadOf(content: MemoContent): Uint8Array {
