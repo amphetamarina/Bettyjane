@@ -4,6 +4,9 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Bettyjane explorer</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Recursive:wght@400;700&display=swap" rel="stylesheet">
     <style>
       :root {
         color-scheme: light dark;
@@ -17,11 +20,14 @@
         --live: #3ddc84;
         --spent: #6b7280;
         --border: #262a33;
+        --font-recursive: "Recursive", "Recursive Casual", "Recursive Mono", monospace;
       }
       * { box-sizing: border-box; }
       body {
         margin: 0;
-        font: 15px/1.5 ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+        font-family: var(--font-recursive);
+        font-size: 15px;
+        line-height: 1.5;
         background: var(--bg);
         color: var(--text);
         padding: 2rem 1.25rem 4rem;
@@ -43,25 +49,27 @@
       .field label .dot.agent { background: var(--memory); }
       .field label .dot.human { background: var(--pin); }
       input, select {
-        font: inherit;
+        font-family: var(--font-recursive);
+        font-size: inherit;
         background: var(--field);
         color: var(--text);
         border: 1px solid var(--border);
-        border-radius: 8px;
+        border-radius: 0;
         padding: 0.5rem 0.6rem;
         min-width: 0;
       }
-      input { font-family: ui-monospace, monospace; font-size: 0.86rem; }
+      input { font-size: 0.86rem; }
       input:focus, select:focus { outline: none; border-color: var(--memory); }
       .controls .actions { display: flex; gap: 0.5rem; }
       button {
+        font-family: var(--font-recursive);
         font: inherit;
         font-weight: 600;
         cursor: pointer;
         background: var(--memory);
         color: #08121f;
         border: none;
-        border-radius: 8px;
+        border-radius: 0;
         padding: 0.55rem 1rem;
       }
       button:hover { filter: brightness(1.08); }
@@ -76,7 +84,7 @@
         background: var(--card);
         border: 1px solid var(--border);
         border-left-width: 4px;
-        border-radius: 10px;
+        border-radius: 0;
         padding: 0.9rem 1.05rem;
       }
       .card.pin { border-left-color: var(--pin); }
@@ -107,17 +115,17 @@
       .tabs { display: flex; gap: 0.5rem; margin: 0 0 1rem; border-bottom: 1px solid var(--border); }
       .tab { background: none; border: none; border-bottom: 2px solid transparent; color: var(--muted); padding: 0.5rem 0.2rem; margin-bottom: -1px; font-size: 0.95rem; cursor: pointer; }
       .tab.active { color: var(--text); border-bottom-color: var(--memory); }
-      .who { font-family: ui-monospace, monospace; font-size: 0.8rem; color: var(--muted); margin-bottom: 0.35rem; word-break: break-all; }
+      .who { font-family: var(--font-recursive); font-size: 0.8rem; color: var(--muted); margin-bottom: 0.35rem; word-break: break-all; }
       .who a { color: inherit; text-decoration: none; }
       .who a:hover { text-decoration: underline; }
       .author { color: var(--muted); font-size: 0.82rem; }
       .content { font-size: 1.02rem; white-space: pre-wrap; word-break: break-word; }
-      .content.pointer { font-family: ui-monospace, monospace; color: var(--muted); font-size: 0.9rem; }
-      .content.encrypted { font-family: ui-monospace, monospace; color: var(--muted); font-size: 0.9rem; }
+      .content.pointer { font-family: var(--font-recursive); color: var(--muted); font-size: 0.9rem; }
+      .content.encrypted { font-family: var(--font-recursive); color: var(--muted); font-size: 0.9rem; }
       .viapointer { margin-top: 0.4rem; font-size: 0.78rem; color: var(--muted); }
       .meta { margin-top: 0.55rem; font-size: 0.78rem; color: var(--muted); }
       .meta a { color: inherit; text-decoration: underline; }
-      .outpoint { font-family: ui-monospace, monospace; }
+      .outpoint { font-family: var(--font-recursive); }
       .empty, .error { color: var(--muted); padding: 1.5rem 0.25rem; font-size: 0.9rem; }
       .error { color: #ff6b6b; }
       footer { margin-top: 2rem; color: var(--muted); font-size: 0.78rem; }
