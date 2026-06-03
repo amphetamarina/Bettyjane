@@ -1,5 +1,5 @@
 export type { Memo, MemoContent, MemoKind } from "./domain/memo";
-export { EmptyMemoError, encrypted, memory, pin, pointer, text } from "./domain/memo";
+export { EmptyMemoError, consensus, encrypted, memory, pin, pointer, text } from "./domain/memo";
 
 export { DecryptError, ECIES_OVERHEAD_BYTES, decryptWithSeckey, encryptToPubkey } from "./domain/crypto";
 
@@ -82,6 +82,15 @@ export {
 } from "./infrastructure/ecash/minter";
 
 export { changeThreadingMinter, sequentialMinter } from "./infrastructure/ecash/sequential-minter";
+
+export type { ConsensusMinterOptions, ConsensusSigner } from "./infrastructure/ecash/multisig";
+export {
+  ConsensusMinter,
+  consensusAddress,
+  consensusRedeemScript,
+  consensusScriptHash,
+  consensusSignatory,
+} from "./infrastructure/ecash/multisig";
 
 export type { LiveCoin, MemoCoinSource, UnspentCoin } from "./infrastructure/ecash/reader";
 export { MemoReader } from "./infrastructure/ecash/reader";

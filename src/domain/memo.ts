@@ -1,4 +1,4 @@
-export type MemoKind = "memory" | "pin";
+export type MemoKind = "memory" | "pin" | "consensus";
 
 export type MemoContent =
   | { readonly type: "text"; readonly text: string }
@@ -38,4 +38,9 @@ export function memory(content: MemoContent): Memo {
 
 export function pin(content: MemoContent): Memo {
   return { kind: "pin", content };
+}
+
+/** A consensus memo: co-authored, held at a 2-of-2 address (AMP-244). */
+export function consensus(content: MemoContent): Memo {
+  return { kind: "consensus", content };
 }
