@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { renderTurn } from "../hooks/distill";
+import { renderTurn } from "../capture/turn";
 
 const line = (obj: unknown) => JSON.stringify(obj);
 const user = (content: unknown, extra: object = {}) => line({ type: "user", message: { role: "user", content }, ...extra });
