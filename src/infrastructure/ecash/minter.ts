@@ -9,7 +9,8 @@ import {
   fromHex,
 } from "ecash-lib";
 import { ChronikClient } from "chronik-client";
-import { memory, pin, pointer, text, type Memo, type MemoContent, type MemoKind } from "../../domain/memo";
+import { encrypted, memory, pin, pointer, text, type Memo, type MemoContent, type MemoKind } from "../../domain/memo";
+import { encryptToPubkey } from "../../domain/crypto";
 import { parseCoinId } from "../../domain/coin-id";
 import { chunkText } from "../../domain/chunking";
 import type { Signer } from "./wallet";
@@ -188,6 +189,28 @@ export class Minter {
    */
   async remember(value: string, signer: Signer): Promise<MintResult> {
     return this.writeText("memory", value, signer);
+  }
+
+  /**
+   * Remember a note privately (AMP-242): encrypt `value` to `recipientPubkey`
+   * with ECIES and mint the ciphertext as an encrypted memory coin, so the note
+   * lives on the public chain readable only by the holder of the matching secret
+   * key. Encrypt to the author's own pubkey to remember-to-self.
+   *
+   * The encrypted blob must fit one inline payload ({@link MAX_PAYLOAD_BYTES});
+   * a longer note throws {@link MemoTooLargeError} — encrypted notes are not yet
+   * split across a pointer chain.
+   */
+  async rememberPrivate(
+    value: string,
+    recipientPubkey: Uint8Array,
+    signer: Signer,
+  ): Promise<MintResult> {
+    const ciphertext = encryptToPubkey(new TextEncoder().encode(value), recipientPubkey);
+    if (ciphertext.length > MAX_PAYLOAD_BYTES) {
+      throw new MemoTooLargeError(ciphertext.length, MAX_PAYLOAD_BYTES);
+    }
+    return this.mint(memory(encrypted(ciphertext)), signer);
   }
 
   /**
