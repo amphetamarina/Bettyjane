@@ -57,11 +57,12 @@ coins. The four verbs are implemented; notes too large for one coin are split
 across a [pointer chain](docs/coin-format.md) and reassembled on read. The
 two-function integration API (`loadMemory` / `saveMemory`), an off-chain embedding
 index, a dependency-free embedder, and `retrieveRelevant` give a small working set
-each turn. Claude Code drives it through hooks (load / capture / consolidate), and
-the repo installs as a Claude Code plugin with `/pin` and `/unpin` commands. The
-`bj` CLI covers `inspect`, `pin`, `unpin`, and `init`, and a web explorer shows
-the live memory. There is no npm package yet — consume it as a library or plugin
-from this repo.
+each turn. Any agent drives it through the **`bj` CLI** — `load`, `capture`,
+`consolidate`, `remember`, `forget`, `private`, `consensus`, `pin`, `unpin`,
+`inspect`, `init` — so it works across harnesses, not just Claude Code; the repo
+also installs as a Claude Code plugin exposing those verbs as skills. A web
+explorer shows the live memory. There is no npm package yet — consume it as a
+library or plugin from this repo.
 
 Five capabilities layer on the coin format, each backward compatible with
 existing coins (see [coin-format.md](docs/coin-format.md); run them with
@@ -193,38 +194,51 @@ public **testnet**:
 See [docs/testnet-and-e2e.md](docs/testnet-and-e2e.md) for the full funding and CI
 story.
 
-## Claude Code hooks
+## Drive it from any agent (CLI + skills)
 
-Drive Bettyjane straight from Claude Code with no custom runner: a SessionStart
-hook loads the team's memory into context, an opt-in Stop hook remembers each turn
-on chain, and a SessionEnd hook tidies duplicates. Configure your wallet with
-`BJ_MNEMONIC` / `BJ_NETWORK`, enable writes with `BJ_CAPTURE=1`, and watch memories
-land. See [hooks/README.md](hooks/README.md) — including the mainnet "real,
+Bettyjane's portable interface is the **`bj` CLI** — every capability is a verb,
+so any agent runtime (Claude Code, Codex, opencode, Grok, Hermes, or a plain
+shell loop) gets persistent on-chain memory by shelling out to it, no
+harness-specific hooks required:
+
+```bash
+bun bin/bj.ts load                                 # before a turn: load memory
+printf '%s' "$turn_text" | bun bin/bj.ts capture   # after a turn: distill + mint
+bun bin/bj.ts consolidate                          # at session end: tidy duplicates
+```
+
+`load`/`remember`/`forget`/`private`/`consensus`/`pin`/`unpin`/`capture`/`consolidate`
+are all CLI verbs (`bun bin/bj.ts --help`). Distillation runs through `BJ_DISTILL_CMD`
+(any model CLI — `"opencode run"`, `"codex exec"`, …) or the bundled `claude`. See
+[AGENTS.md](AGENTS.md#using-bettyjane-as-memory-from-any-agent-harness) for the
+runner loop and [docs/coin-format.md](docs/coin-format.md) for the mainnet "real,
 public, and permanent" warning.
 
 ### Install as a plugin
 
-The repo ships as a Claude Code plugin (hooks plus the `/pin` and `/unpin`
-commands) through a marketplace manifest, so you can install it once and have it
-active in every session:
+The repo ships as a Claude Code plugin — the same verbs exposed as skills
+(`/remember`, `/forget`, `/private`, `/consensus`, `/load`, `/capture`,
+`/consolidate`, `/pin`, `/unpin`) — through a marketplace manifest, so you can
+install it once and invoke memory from any session:
 
 ```bash
 /plugin marketplace add amphetamarina/Bettyjane   # or a local path to this repo
 /plugin install bettyjane@bettyjane
 ```
 
-The hooks need `bun` on `PATH` and your wallet env vars. Loading memory needs
-only `BJ_MNEMONIC`; writing memory stays off until you also set `BJ_CAPTURE=1`,
-so an installed plugin never spends until you opt in.
+The CLI needs `bun` on `PATH` and your wallet env vars (`BJ_MNEMONIC` /
+`BJ_NETWORK`). Reading memory needs only `BJ_MNEMONIC`; the write verbs spend real
+value, so nothing is written unless you run them.
 
 ## Project layout
 
 ```
-bin/                CLI entrypoints (bj — inspect / pin / unpin / init)
-examples/           runnable scripts (the agent-verb loop)
+bin/                the bj CLI — a verb per capability (the portable interface)
+capture/            turn rendering + the pluggable distiller (BJ_DISTILL_CMD)
+commands/           Claude Code skills, one per verb (remember, capture, pin, ...)
+examples/           runnable scripts (the agent-verb loop, feature tour)
 explorer/           the web view of live memory (local server + Vercel function)
 public/             the explorer's static page (served locally and on Vercel)
-hooks/              Claude Code hooks (load / capture / consolidate)
 src/
   domain/           pure, chain-agnostic model (memo, author, funding, retrieval)
   application/      the integration API (loadMemory / saveMemory)
