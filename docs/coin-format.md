@@ -91,6 +91,31 @@ and `POINTER` heads fall back to the unsigned v1 encoding. v1 coins remain valid
 and decode unchanged — `decodeMemo` accepts both versions and drops the signature;
 `decodeSignedMemo` / `verifyMemoAuthor` expose and check it.
 
+### Batching a turn's notes with eMPP (AMP-240)
+
+A substantive turn can yield several notes. Rather than one transaction per note,
+they can ride in a single transaction using an **eCash Multipurpose Payload
+(eMPP)** `OP_RETURN`:
+
+```
+OP_RETURN OP_RESERVED <section_0> <section_1> ... <section_{n-1}>
+```
+
+Each `<section_i>` is one push whose bytes are a whole Bettyjane memo packed
+together: `LOKAD_ID ‖ [VERSION, KIND, CONTENT_TYPE] ‖ PAYLOAD`. The transaction
+lays **one dust coin per section**, at outputs `1..n` in section order (the
+`OP_RETURN` is output `0`), so every note remains an independently forgettable
+coin — `forget(id)` spends a single section's dust coin and leaves the rest live.
+The reader maps the dust coin at output `k` back to section `k-1`.
+
+`encodeMemoBatch` builds the script (capped at the 223-byte `OP_RETURN` limit);
+`batchMemos` greedily packs a list of notes into batches that each fit, so a
+caller mints one transaction per batch. Foreign eMPP sections (a different
+`LOKAD`) are skipped on decode, so Bettyjane can share an eMPP transaction with
+other eCash protocols. Batched sections are **unsigned (v1)**; signing batched
+sections (combining with the v2 signature) is a follow-up, so the live capture
+path still mints signed single memos for now.
+
 ### The large-content pointer scheme (AMP-208)
 
 `remember(text)` chooses the representation by size, transparently:
