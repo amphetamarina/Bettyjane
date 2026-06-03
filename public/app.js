@@ -12,6 +12,13 @@ const els = {
   agentCount: document.getElementById("agent-count"),
   humanCount: document.getElementById("human-count"),
   status: document.getElementById("status"),
+  tabs: document.getElementById("tabs"),
+  viewExplore: document.getElementById("view-explore"),
+  viewDiscover: document.getElementById("view-discover"),
+  discoverControls: document.getElementById("discover-controls"),
+  discoverNetwork: document.getElementById("discover-network"),
+  discoverCount: document.getElementById("discover-count"),
+  discoverStack: document.getElementById("discover-stack"),
 };
 
 function loadConfig() {
@@ -190,6 +197,98 @@ function timestamp() {
   return new Date().toLocaleTimeString();
 }
 
+async function fetchDiscover(network) {
+  const response = await fetch(`/api/discover?${new URLSearchParams({ network }).toString()}`);
+  const body = await response.text();
+  let data;
+  try {
+    data = JSON.parse(body);
+  } catch {
+    throw new Error(body.trim().slice(0, 140) || `HTTP ${response.status}`);
+  }
+  if (!response.ok) throw new Error(data.error || `HTTP ${response.status}`);
+  return data.memories;
+}
+
+async function refreshDiscover() {
+  const network = els.discoverNetwork.value;
+  els.discoverStack.innerHTML = "";
+  els.discoverCount.textContent = "scanning the chain…";
+  try {
+    const memories = await fetchDiscover(network);
+    const addresses = new Set(memories.map((m) => m.address)).size;
+    const live = memories.filter((m) => !m.spent).length;
+    els.discoverCount.textContent = `${memories.length} memories · ${live} live · ${addresses} address(es) · ${network}`;
+    els.discoverStack.innerHTML = "";
+    if (memories.length === 0) {
+      const empty = document.createElement("div");
+      empty.className = "empty";
+      empty.textContent = "No Bettyjane memories found on this network yet.";
+      els.discoverStack.append(empty);
+    } else {
+      for (const memory of memories) els.discoverStack.append(discoverCard(memory));
+    }
+  } catch (error) {
+    els.discoverCount.textContent = "";
+    const div = document.createElement("div");
+    div.className = "error";
+    div.textContent = `Could not read the chain: ${error.message}`;
+    els.discoverStack.append(div);
+  }
+}
+
+function discoverCard(memory) {
+  const el = document.createElement("article");
+  el.className = `card ${memory.kind}${memory.spent ? " forgotten" : ""}`;
+
+  const who = document.createElement("div");
+  who.className = "who";
+  if (memory.explorerUrl) {
+    const link = document.createElement("a");
+    link.href = memory.explorerUrl;
+    link.target = "_blank";
+    link.rel = "noreferrer";
+    link.textContent = memory.address;
+    who.append(link);
+  } else {
+    who.textContent = memory.address;
+  }
+  el.append(who);
+
+  const row = document.createElement("div");
+  row.className = "row";
+  row.append(tag(memory.kind, memory.kind));
+  if (memory.spent) row.append(tag("forgotten", "forgotten"));
+  else row.append(tag(memory.confirmed ? "live" : "pending", memory.confirmed ? "live" : "pending"));
+  if (memory.content.type === "encrypted") row.append(tag("encrypted", "encrypted"));
+  el.append(row);
+
+  const content = document.createElement("div");
+  if (memory.content.type === "text") {
+    content.className = "content";
+    content.textContent = memory.content.text;
+  } else if (memory.content.type === "encrypted") {
+    content.className = "content encrypted";
+    content.textContent = "encrypted — readable only with the key";
+  } else {
+    content.className = "content pointer";
+    content.textContent = "pointer (stored across multiple coins)";
+  }
+  el.append(content);
+
+  return el;
+}
+
+function showView(view) {
+  const discover = view === "discover";
+  els.viewExplore.hidden = discover;
+  els.viewDiscover.hidden = !discover;
+  for (const tab of els.tabs.querySelectorAll(".tab")) {
+    tab.classList.toggle("active", tab.dataset.view === view);
+  }
+  if (discover && !els.discoverStack.childElementCount) refreshDiscover();
+}
+
 let timer = null;
 function startPolling() {
   if (timer) clearInterval(timer);
@@ -208,10 +307,21 @@ els.showSpent.addEventListener("change", () => {
   startPolling();
 });
 
+els.tabs.addEventListener("click", (event) => {
+  const tab = event.target.closest(".tab");
+  if (tab) showView(tab.dataset.view);
+});
+
+els.discoverControls.addEventListener("submit", (event) => {
+  event.preventDefault();
+  refreshDiscover();
+});
+
 const initial = loadConfig();
 els.agent.value = initial.agent;
 els.human.value = initial.human;
 els.network.value = initial.network;
+els.discoverNetwork.value = initial.network;
 els.showSpent.checked = initial.showSpent;
 saveConfig(initial);
 startPolling();
