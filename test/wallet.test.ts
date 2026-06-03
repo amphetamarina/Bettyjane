@@ -3,10 +3,12 @@ import { Ecc, mnemonicToEntropy } from "ecash-lib";
 import wordlist from "ecash-lib/wordlists/english.json" with { type: "json" };
 import {
   AUTHORS,
+  DEFAULT_NAMESPACE,
   InvalidEntropyError,
   Wallet,
   derivationPath,
   generateMnemonic,
+  namespaceIndex,
 } from "../src/index";
 
 // BIP-39 test vector; deterministic across runs.
@@ -17,6 +19,65 @@ describe("derivation paths", () => {
   test("agent and human are separate BIP-44 accounts under XEC coin type", () => {
     expect(derivationPath("agent")).toBe("m/44'/1899'/0'/0/0");
     expect(derivationPath("human")).toBe("m/44'/1899'/1'/0/0");
+  });
+
+  test("a namespace index lands on the address-index path component", () => {
+    expect(derivationPath("agent", 0)).toBe("m/44'/1899'/0'/0/0");
+    expect(derivationPath("agent", 7)).toBe("m/44'/1899'/0'/0/7");
+  });
+});
+
+describe("namespace indices (AMP-243)", () => {
+  test("the default namespace is index 0", () => {
+    expect(namespaceIndex(DEFAULT_NAMESPACE)).toBe(0);
+  });
+
+  test("a named namespace is deterministic and non-zero", () => {
+    expect(namespaceIndex("billing")).toBe(namespaceIndex("billing"));
+    expect(namespaceIndex("billing")).toBeGreaterThan(0);
+  });
+
+  test("distinct names derive distinct indices", () => {
+    expect(namespaceIndex("billing")).not.toBe(namespaceIndex("infra"));
+  });
+
+  test("indices stay within the non-hardened range", () => {
+    for (const name of ["billing", "infra", "a-very-long-namespace-name", "🪙"]) {
+      const index = namespaceIndex(name);
+      expect(index).toBeGreaterThanOrEqual(0);
+      expect(index).toBeLessThan(0x80000000);
+    }
+  });
+});
+
+describe("namespaced addresses (AMP-243)", () => {
+  test("the default namespace reproduces the original address", () => {
+    const wallet = Wallet.fromMnemonic(PHRASE);
+    for (const author of AUTHORS) {
+      expect(wallet.address(author, DEFAULT_NAMESPACE)).toBe(wallet.address(author));
+      expect(wallet.account(author, DEFAULT_NAMESPACE).path).toBe(derivationPath(author, 0));
+    }
+  });
+
+  test("a named namespace derives a different, watchable address", () => {
+    const wallet = Wallet.fromMnemonic(PHRASE);
+    const scoped = wallet.address("agent", "billing");
+    expect(scoped).toMatch(/^ecash:q/);
+    expect(scoped).not.toBe(wallet.address("agent"));
+  });
+
+  test("namespaced derivation is deterministic across wallets", () => {
+    expect(Wallet.fromMnemonic(PHRASE).address("agent", "infra")).toBe(
+      Wallet.fromMnemonic(PHRASE).address("agent", "infra"),
+    );
+  });
+
+  test("the namespaced signer's key matches its account", () => {
+    const wallet = Wallet.fromMnemonic(PHRASE);
+    const signer = wallet.signer("agent", "billing");
+    expect(signer.address).toBe(wallet.account("agent", "billing").address);
+    expect(signer.pubkey).toEqual(wallet.account("agent", "billing").pubkey);
+    expect(new Ecc().derivePubkey(signer.seckey)).toEqual(signer.pubkey);
   });
 });
 

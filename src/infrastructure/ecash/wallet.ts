@@ -1,4 +1,12 @@
-import { Address, DEFAULT_PREFIX, HdNode, entropyToMnemonic, mnemonicToSeed } from "ecash-lib";
+import {
+  Address,
+  DEFAULT_PREFIX,
+  HdNode,
+  entropyToMnemonic,
+  mnemonicToSeed,
+  sha256,
+  strToBytes,
+} from "ecash-lib";
 import wordlist from "ecash-lib/wordlists/english.json" with { type: "json" };
 import type { Author } from "../../domain/author";
 
@@ -12,8 +20,31 @@ export const XEC_COIN_TYPE = 1899;
  */
 const ACCOUNT_BY_AUTHOR: Record<Author, number> = { agent: 0, human: 1 };
 
-export const derivationPath = (author: Author): string =>
-  `m/44'/${XEC_COIN_TYPE}'/${ACCOUNT_BY_AUTHOR[author]}'/0/0`;
+/**
+ * The default memory namespace: the BIP-44 address index 0, i.e. the single
+ * address each author has always used. Naming no namespace resolves here, so the
+ * default path is byte-for-byte the original one.
+ */
+export const DEFAULT_NAMESPACE = "";
+
+/**
+ * Map a namespace name to a BIP-44 address index (AMP-243). Namespaces partition
+ * an author's memory into separate, independently watchable addresses while
+ * keeping the two-author split on the account level. The mapping is a pure
+ * function of the name — no registry to keep in sync — so the same name always
+ * derives the same address. The default namespace is index 0; every other name
+ * hashes into the non-hardened index range and is bumped off 0 so it can never
+ * alias the default. A collision between two distinct names is a 1-in-2^31 event.
+ */
+export function namespaceIndex(name: string): number {
+  if (name === DEFAULT_NAMESPACE) return 0;
+  const hash = sha256(strToBytes(name));
+  const index = new DataView(hash.buffer, hash.byteOffset, 4).getUint32(0) & 0x7fffffff;
+  return index === 0 ? 1 : index;
+}
+
+export const derivationPath = (author: Author, addressIndex = 0): string =>
+  `m/44'/${XEC_COIN_TYPE}'/${ACCOUNT_BY_AUTHOR[author]}'/0/${addressIndex}`;
 
 const VALID_ENTROPY_BITS = [128, 160, 192, 224, 256] as const;
 type EntropyBits = (typeof VALID_ENTROPY_BITS)[number];
@@ -84,30 +115,30 @@ export class Wallet {
     return new Wallet(HdNode.fromSeed(seed), options.prefix ?? DEFAULT_PREFIX);
   }
 
-  account(author: Author): Account {
-    const node = this.nodeOf(author);
+  account(author: Author, namespace: string = DEFAULT_NAMESPACE): Account {
+    const node = this.nodeOf(author, namespace);
     return {
       author,
-      path: derivationPath(author),
+      path: derivationPath(author, namespaceIndex(namespace)),
       pubkey: node.pubkey(),
       address: Address.p2pkh(node.pkh(), this.prefix).toString(),
     };
   }
 
-  address(author: Author): string {
-    return Address.p2pkh(this.nodeOf(author).pkh(), this.prefix).toString();
+  address(author: Author, namespace: string = DEFAULT_NAMESPACE): string {
+    return Address.p2pkh(this.nodeOf(author, namespace).pkh(), this.prefix).toString();
   }
 
-  signingKey(author: Author): SigningKey {
-    const node = this.nodeOf(author);
+  signingKey(author: Author, namespace: string = DEFAULT_NAMESPACE): SigningKey {
+    const node = this.nodeOf(author, namespace);
     const seckey = node.seckey();
     if (!seckey) throw new Error(`no private key for the ${author} account`);
     return { seckey, pubkey: node.pubkey() };
   }
 
   /** The author's address and key together, ready to hand to a minter. */
-  signer(author: Author): Signer {
-    const node = this.nodeOf(author);
+  signer(author: Author, namespace: string = DEFAULT_NAMESPACE): Signer {
+    const node = this.nodeOf(author, namespace);
     const seckey = node.seckey();
     if (!seckey) throw new Error(`no private key for the ${author} account`);
     return {
@@ -117,7 +148,7 @@ export class Wallet {
     };
   }
 
-  private nodeOf(author: Author): HdNode {
-    return this.master.derivePath(derivationPath(author));
+  private nodeOf(author: Author, namespace: string = DEFAULT_NAMESPACE): HdNode {
+    return this.master.derivePath(derivationPath(author, namespaceIndex(namespace)));
   }
 }
