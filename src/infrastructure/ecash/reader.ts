@@ -20,6 +20,9 @@ import { networkConfig, type Network, type NetworkConfig } from "./network.js";
 /** Chronik in mempool reports an unconfirmed UTXO's block height as this. */
 const MEMPOOL_BLOCK_HEIGHT = -1;
 
+/** What an encrypted memory resolves to without a key; decryption is keyed and separate. */
+const ENCRYPTED_PLACEHOLDER = "[encrypted]";
+
 /** An unspent output at an address: where the coin sits and how much it holds. */
 export interface UnspentCoin {
   readonly outpoint: { readonly txid: string; readonly outIdx: number };
@@ -92,6 +95,7 @@ export class MemoReader {
    */
   async resolveText(coin: LiveCoin): Promise<string> {
     if (coin.memo.content.type === "text") return coin.memo.content.text;
+    if (coin.memo.content.type === "encrypted") return ENCRYPTED_PLACEHOLDER;
     const txids = splitTxids(coin.memo.content.pointer);
     const chunks = await Promise.all(txids.map((txid) => this.chunkText(txid)));
     return chunks.join("");
