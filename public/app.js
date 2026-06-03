@@ -6,6 +6,7 @@ const els = {
   agent: document.getElementById("agent"),
   human: document.getElementById("human"),
   network: document.getElementById("network"),
+  showSpent: document.getElementById("show-spent"),
   agentStack: document.getElementById("agent-stack"),
   humanStack: document.getElementById("human-stack"),
   agentCount: document.getElementById("agent-count"),
@@ -25,6 +26,7 @@ function loadConfig() {
     agent: params.get("agent") ?? saved.agent ?? "",
     human: params.get("human") ?? saved.human ?? "",
     network: params.get("network") ?? saved.network ?? "mainnet",
+    showSpent: (params.get("all") ?? (saved.showSpent ? "1" : "")) === "1",
   };
 }
 
@@ -34,6 +36,7 @@ function saveConfig(config) {
   if (config.agent) params.set("agent", config.agent);
   if (config.human) params.set("human", config.human);
   params.set("network", config.network);
+  if (config.showSpent) params.set("all", "1");
   history.replaceState(null, "", `${location.pathname}?${params.toString()}`);
 }
 
@@ -42,11 +45,13 @@ function currentConfig() {
     agent: els.agent.value.trim(),
     human: els.human.value.trim(),
     network: els.network.value,
+    showSpent: els.showSpent.checked,
   };
 }
 
-async function fetchAddress(address, network) {
+async function fetchAddress(address, network, showSpent) {
   const query = new URLSearchParams({ address, network });
+  if (showSpent) query.set("all", "1");
   const response = await fetch(`/api/memories?${query.toString()}`);
   const body = await response.text();
   let data;
@@ -59,7 +64,7 @@ async function fetchAddress(address, network) {
   return data.memories;
 }
 
-function renderColumn(stack, countEl, address, network, label) {
+function renderColumn(stack, countEl, address, network, label, showSpent) {
   if (!address) {
     stack.innerHTML = "";
     countEl.textContent = "";
@@ -69,19 +74,22 @@ function renderColumn(stack, countEl, address, network, label) {
     stack.append(empty);
     return Promise.resolve(0);
   }
-  return fetchAddress(address, network)
+  return fetchAddress(address, network, showSpent)
     .then((memories) => {
       stack.innerHTML = "";
-      countEl.textContent = `${memories.length} live · ${shorten(address)}`;
+      const live = memories.filter((m) => !m.spent).length;
+      countEl.textContent = showSpent
+        ? `${live} live · ${memories.length} total · ${shorten(address)}`
+        : `${memories.length} live · ${shorten(address)}`;
       if (memories.length === 0) {
         const empty = document.createElement("div");
         empty.className = "empty";
-        empty.textContent = `No live ${label} at this address yet.`;
+        empty.textContent = `No ${label} at this address yet.`;
         stack.append(empty);
       } else {
         for (const memory of memories) stack.append(card(memory));
       }
-      return memories.length;
+      return live;
     })
     .catch((error) => {
       stack.innerHTML = "";
@@ -97,10 +105,11 @@ function renderColumn(stack, countEl, address, network, label) {
 async function refresh() {
   const config = currentConfig();
   const [pins, memories] = await Promise.all([
-    renderColumn(els.humanStack, els.humanCount, config.human, config.network, "pins"),
-    renderColumn(els.agentStack, els.agentCount, config.agent, config.network, "memories"),
+    renderColumn(els.humanStack, els.humanCount, config.human, config.network, "pins", config.showSpent),
+    renderColumn(els.agentStack, els.agentCount, config.agent, config.network, "memories", config.showSpent),
   ]);
-  els.status.textContent = `${pins} pin(s) · ${memories} memory(ies) · ${config.network} · refreshed ${timestamp()}`;
+  const scope = config.showSpent ? " · including spent" : "";
+  els.status.textContent = `${pins} pin(s) · ${memories} memory(ies) · ${config.network}${scope} · refreshed ${timestamp()}`;
 }
 
 function shorten(address) {
@@ -110,14 +119,13 @@ function shorten(address) {
 
 function card(memory) {
   const el = document.createElement("article");
-  el.className = `card ${memory.kind}`;
+  el.className = `card ${memory.kind}${memory.spent ? " forgotten" : ""}`;
 
   const row = document.createElement("div");
   row.className = "row";
-  row.append(
-    tag(memory.kind, memory.kind),
-    tag(memory.confirmed ? "live" : "spent", memory.confirmed ? "live" : "pending"),
-  );
+  row.append(tag(memory.kind, memory.kind));
+  if (memory.spent) row.append(tag("forgotten", "forgotten"));
+  else row.append(tag(memory.confirmed ? "live" : "pending", memory.confirmed ? "live" : "pending"));
   if (memory.authorVerified) row.append(tag("signed", "signed"));
   if (memory.content.type === "encrypted") row.append(tag("encrypted", "encrypted"));
   const author = document.createElement("span");
@@ -195,9 +203,15 @@ els.form.addEventListener("submit", (event) => {
   startPolling();
 });
 
+els.showSpent.addEventListener("change", () => {
+  saveConfig(currentConfig());
+  startPolling();
+});
+
 const initial = loadConfig();
 els.agent.value = initial.agent;
 els.human.value = initial.human;
 els.network.value = initial.network;
+els.showSpent.checked = initial.showSpent;
 saveConfig(initial);
 startPolling();
