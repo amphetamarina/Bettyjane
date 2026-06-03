@@ -1,17 +1,21 @@
 /**
  * The distiller: turns one rendered turn into notes worth remembering by asking
- * a model. Rather than a raw API client and an API key, it shells out to the
- * `claude` CLI in print mode, reusing whatever auth the human already runs
- * Claude Code with. The CLI is told to emit a schema-validated memory-ops block
- * as JSON, which parseMemoryOps reads.
+ * a model. It is agnostic about which model CLI runs:
  *
- * Two flags keep the call cheap and safe: a replacement --system-prompt (not an
- * append) drops the full Claude Code system prompt, and --setting-sources user
- * loads only user settings, so the project's own Stop hook never runs inside
- * this child and capture cannot recurse into itself.
+ * - With no BJ_DISTILL_CMD set, it shells out to the `claude` CLI in print mode,
+ *   reusing whatever auth Claude Code already has, and asks for a schema-validated
+ *   JSON block (the most reliable path).
+ * - With BJ_DISTILL_CMD set, it runs that command instead, piping the prompt on
+ *   stdin and reading notes from stdout. Any headless agent CLI works — e.g.
+ *   `BJ_DISTILL_CMD="opencode run"`, `"codex exec"`, `"grok"`, `"hermes"` — as
+ *   long as it reads a prompt and writes text. parseNotes reads the reply
+ *   leniently (JSON array, {remember:[...]}, a fenced block, or one note a line).
+ *
+ * Either way the prompt is the same model-agnostic instruction, so the notes are
+ * consistent across models.
  */
 
-import { parseMemoryOps } from "./distill";
+import { parseMemoryOps, parseNotes } from "./distill";
 
 const SYSTEM_PROMPT = `You distill ONE turn of an AI agent's working session into durable notes for a shared, permanent, on-chain team memory. Storage is cheap, so capture generously: record every fact a future session would be glad to already know.
 
@@ -20,6 +24,9 @@ Return JSON with two arrays:
 - forgetIds: always [].
 
 This memory is PUBLIC and PERMANENT. NEVER record secrets or sensitive data: no credentials, API keys, tokens, passwords, private keys or mnemonics, environment-variable or config values, connection strings, raw file contents, or personal/private information. When a fact cannot be stated without including such a value, omit it or describe it without the value (e.g. "set the API key in the env", never the key itself).`;
+
+/** Appended for a generic CLI, which cannot enforce a schema: ask for plain JSON. */
+const OUTPUT_INSTRUCTION = `Output ONLY the remember array as a JSON array of note strings, e.g. ["note one", "note two"]. No prose, no code fence, no other keys. Output [] if nothing is worth keeping.`;
 
 const MEMORY_OPS_SCHEMA = JSON.stringify({
   type: "object",
@@ -36,7 +43,45 @@ export interface DistillerOptions {
   readonly model?: string;
 }
 
-export async function distillWithClaude(turnText: string, options: DistillerOptions): Promise<string[]> {
+/**
+ * Distill a turn into notes, using BJ_DISTILL_CMD when set and the bundled
+ * `claude` path otherwise.
+ */
+export async function distill(turnText: string, options: DistillerOptions): Promise<string[]> {
+  const command = process.env.BJ_DISTILL_CMD?.trim();
+  return command
+    ? distillViaCommand(command, turnText, options)
+    : distillViaClaude(turnText, options);
+}
+
+/** Backwards-compatible alias for the bundled `claude` path. */
+export const distillWithClaude = distill;
+
+async function distillViaCommand(
+  command: string,
+  turnText: string,
+  options: DistillerOptions,
+): Promise<string[]> {
+  const argv = command.split(/\s+/).filter(Boolean);
+  if (argv.length === 0) throw new Error("BJ_DISTILL_CMD is empty");
+
+  const prompt = `${SYSTEM_PROMPT}\n\n${OUTPUT_INSTRUCTION}\n\nTurn:\n\n${turnText}`;
+  const proc = Bun.spawn(argv, { stdin: "pipe", stdout: "pipe", stderr: "pipe" });
+  proc.stdin.write(prompt);
+  proc.stdin.end();
+
+  const [stdout, stderr, exitCode] = await Promise.all([
+    new Response(proc.stdout).text(),
+    new Response(proc.stderr).text(),
+    proc.exited,
+  ]);
+  if (exitCode !== 0) {
+    throw new Error(`distiller "${argv[0]}" exited ${exitCode}: ${stderr.trim() || "(no stderr)"}`);
+  }
+  return parseNotes(stdout, options.maxBytes);
+}
+
+async function distillViaClaude(turnText: string, options: DistillerOptions): Promise<string[]> {
   const proc = Bun.spawn(
     [
       "claude",

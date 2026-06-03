@@ -85,6 +85,48 @@ export function parseMemoryOps(claudeStdout: string, maxBytes: number): string[]
   return notes;
 }
 
+/**
+ * Read notes from an arbitrary distiller CLI's raw stdout, leniently, so any
+ * model command can be used (not just `claude`). Accepts, in order: a JSON array
+ * of strings, a JSON object with a `remember` string array, either of those
+ * inside a ```fenced``` block, or — failing all that — one note per line with
+ * any leading bullet or number stripped. Each note is trimmed and byte-capped at
+ * a word boundary; blanks are dropped. Returns [] when nothing usable is found.
+ */
+export function parseNotes(stdout: string, maxBytes: number): string[] {
+  const raw = stripFence(stdout.trim());
+  const fromJson = notesFromJson(raw);
+  const items = fromJson ?? raw.split("\n").map(stripListMarker);
+  const notes: string[] = [];
+  for (const item of items) {
+    if (typeof item !== "string") continue;
+    const trimmed = item.trim();
+    if (trimmed) notes.push(truncateToBytesAtWord(trimmed, maxBytes));
+  }
+  return notes;
+}
+
+function stripFence(text: string): string {
+  const fenced = text.match(/^```(?:json)?\s*\n?([\s\S]*?)\n?```$/);
+  return fenced ? fenced[1]!.trim() : text;
+}
+
+function notesFromJson(text: string): string[] | null {
+  const start = text.search(/[[{]/);
+  if (start === -1) return null;
+  try {
+    const value = JSON.parse(text.slice(start));
+    const array = Array.isArray(value) ? value : (value as { remember?: unknown })?.remember;
+    return Array.isArray(array) ? array.filter((item): item is string => typeof item === "string") : null;
+  } catch {
+    return null;
+  }
+}
+
+function stripListMarker(line: string): string {
+  return line.replace(/^\s*(?:[-*•]|\d+[.)])\s+/, "");
+}
+
 interface RenderedEntry {
   readonly role: "user" | "assistant";
   readonly text: string;
