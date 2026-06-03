@@ -83,9 +83,13 @@ jobs:
       - name: Fund the agent and consensus addresses
         run: |
           CLI="bitcoin-cli $RPC_ARGS -datadir=$DATADIR"
-          AGENT="$(bun test/e2e/print-address.ts agent)"
-          CONSENSUS="$(bun test/e2e/print-address.ts consensus)"
-          PAD="$(bun test/e2e/print-address.ts human)"
+          # ecash-lib's wasm intermittently SIGILLs on its first crypto call in a
+          # fresh process (an upstream flake), so derive each address with a few
+          # retries rather than failing the whole run.
+          addr() { for _ in 1 2 3 4 5; do out="$(bun test/e2e/print-address.ts "$1")" && [ -n "$out" ] && { echo "$out"; return 0; }; done; return 1; }
+          AGENT="$(addr agent)"
+          CONSENSUS="$(addr consensus)"
+          PAD="$(addr human)"
           echo "agent: $AGENT"
           echo "consensus: $CONSENSUS"
           # The Minter spends every funding coin of an address at once, and
