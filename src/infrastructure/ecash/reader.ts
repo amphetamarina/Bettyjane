@@ -30,10 +30,26 @@ export interface UnspentCoin {
   readonly blockHeight: number;
 }
 
-/** The reads the reader needs: an address's UTXOs and a transaction's outputs. */
+/** One output of a transaction in an address's history: its script, value, and whether it has been spent. */
+export interface HistoryOutput {
+  readonly script: Script;
+  readonly sats: bigint;
+  readonly spent: boolean;
+}
+
+/** A transaction in an address's history, with enough to reconstruct its memo coins. */
+export interface AddressTx {
+  readonly txid: string;
+  readonly blockHeight: number;
+  readonly outputs: readonly HistoryOutput[];
+}
+
+/** The reads the reader needs: an address's UTXOs, a transaction's outputs, and (for history) its full tx list. */
 export interface MemoCoinSource {
   utxos(address: string): Promise<readonly UnspentCoin[]>;
   outputScripts(txid: string): Promise<readonly Script[]>;
+  /** Every transaction touching the address, newest first; required for {@link MemoReader.listAllCoins}. */
+  history?(address: string): Promise<readonly AddressTx[]>;
 }
 
 /** A live memory: the coin that anchors it and the memo it carries. */
@@ -50,6 +66,15 @@ export interface LiveCoin {
    */
   readonly authorVerified: boolean;
 }
+
+/** A memory across all of history: a {@link LiveCoin} plus whether its coin has been spent (forgotten). */
+export interface HistoricalCoin extends LiveCoin {
+  readonly spent: boolean;
+}
+
+/** Pages of address history to read at most, bounding work on a long-lived address. */
+const MAX_HISTORY_PAGES = 20;
+const HISTORY_PAGE_SIZE = 200;
 
 export class MemoReader {
   constructor(
@@ -74,6 +99,28 @@ export class MemoReader {
         const tx = await client.tx(txid);
         return tx.outputs.map((output) => new Script(fromHex(output.outputScript)));
       },
+      history: async (address) => {
+        const txs: AddressTx[] = [];
+        let page = 0;
+        let numPages = 1;
+        do {
+          const result = await client.address(address).history(page, HISTORY_PAGE_SIZE);
+          numPages = result.numPages;
+          for (const tx of result.txs) {
+            txs.push({
+              txid: tx.txid,
+              blockHeight: tx.block?.height ?? MEMPOOL_BLOCK_HEIGHT,
+              outputs: tx.outputs.map((output) => ({
+                script: new Script(fromHex(output.outputScript)),
+                sats: output.sats,
+                spent: output.spentBy !== undefined,
+              })),
+            });
+          }
+          page += 1;
+        } while (page < numPages && page < MAX_HISTORY_PAGES);
+        return txs;
+      },
     };
     return new MemoReader(source);
   }
@@ -84,6 +131,40 @@ export class MemoReader {
     const candidates = utxos.filter((coin) => coin.sats === DUST_SATS);
     const coins = await Promise.all(candidates.map((coin) => this.toLiveCoin(coin)));
     return coins.filter((coin): coin is LiveCoin => coin !== null);
+  }
+
+  /**
+   * Every memory ever minted at an address, live and forgotten — the full album,
+   * not just the coins on the table now. Reconstructed from the address's
+   * transaction history: each memo coin (a dust output carrying a Bettyjane memo)
+   * becomes a {@link HistoricalCoin} flagged `spent` if its coin has since been
+   * forgotten. Newest first. Bounded to the most recent {@link MAX_HISTORY_PAGES}
+   * pages of history.
+   */
+  async listAllCoins(address: string): Promise<HistoricalCoin[]> {
+    if (!this.source.history) {
+      throw new Error("this reader's source has no history(); use a network-backed MemoReader");
+    }
+    const txs = await this.source.history(address);
+    const coins: HistoricalCoin[] = [];
+    for (const tx of txs) {
+      const scripts = tx.outputs.map((output) => output.script);
+      tx.outputs.forEach((output, outIdx) => {
+        if (output.sats !== DUST_SATS) return; // only dust memo coins anchor a memory
+        const memo = this.memoForCoin(scripts, outIdx);
+        if (!memo) return;
+        coins.push({
+          outpoint: { txid: tx.txid, outIdx },
+          sats: output.sats,
+          memo: memo.memo,
+          blockHeight: tx.blockHeight,
+          confirmed: tx.blockHeight !== MEMPOOL_BLOCK_HEIGHT,
+          authorVerified: memo.authorVerified,
+          spent: output.spent,
+        });
+      });
+    }
+    return coins;
   }
 
   /**

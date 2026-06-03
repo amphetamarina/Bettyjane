@@ -111,7 +111,9 @@ verbs. Use `--network testnet` for test coins.
 
 A read-only page that shows the live memory side by side — the human's durable
 pins and the agent's working memories — polling the chain so new writes appear
-without a reload.
+without a reload. Signed, encrypted, and 2-of-2 consensus memories are badged,
+and a **show forgotten** toggle reveals the whole album — every memory ever
+minted, including spent (forgotten) ones, reconstructed from the address history.
 
 ```bash
 bun run watch                                   # enter addresses in the page

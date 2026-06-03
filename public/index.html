@@ -97,7 +97,13 @@
       .tag.signed { background: rgba(61, 220, 132, 0.16); color: var(--live); }
       .tag.encrypted { background: rgba(245, 166, 35, 0.16); color: var(--pin); }
       .tag.consensus { background: rgba(167, 139, 250, 0.18); color: #a78bfa; }
+      .tag.pending { background: rgba(245, 166, 35, 0.16); color: var(--pin); }
+      .tag.forgotten { background: rgba(107, 114, 128, 0.18); color: var(--spent); }
       .card.consensus { border-left-color: #a78bfa; }
+      .card.forgotten { opacity: 0.55; }
+      .card.forgotten .content { text-decoration: line-through; text-decoration-color: var(--spent); }
+      .checkbox { flex-direction: row; align-items: center; gap: 0.4rem; font-size: 0.82rem; text-transform: none; letter-spacing: 0; color: var(--muted); cursor: pointer; }
+      .checkbox input { width: auto; }
       .author { color: var(--muted); font-size: 0.82rem; }
       .content { font-size: 1.02rem; white-space: pre-wrap; word-break: break-word; }
       .content.pointer { font-family: ui-monospace, monospace; color: var(--muted); font-size: 0.9rem; }
@@ -143,6 +149,10 @@
           </select>
           <button type="submit">Watch</button>
         </div>
+      </div>
+      <div class="field">
+        <label for="show-spent">History</label>
+        <label class="checkbox"><input type="checkbox" id="show-spent" name="all" /> show forgotten (spent) memories</label>
       </div>
     </form>
 

@@ -1,6 +1,6 @@
 import { authorOf, type Author } from "../src/domain/author.js";
 import type { MemoKind } from "../src/domain/memo.js";
-import type { LiveCoin } from "../src/infrastructure/ecash/reader.js";
+import type { HistoricalCoin, LiveCoin } from "../src/infrastructure/ecash/reader.js";
 import type { Network } from "../src/infrastructure/ecash/network.js";
 
 export type MemoryContentView =
@@ -17,6 +17,8 @@ export interface MemoryView {
   readonly confirmed: boolean;
   /** Whether the coin's memo carries a valid author signature (AMP-239). */
   readonly authorVerified: boolean;
+  /** Whether the coin has been spent (the memory was forgotten); only set in the history view. */
+  readonly spent: boolean;
   readonly content: MemoryContentView;
   readonly explorerUrl: string | null;
 }
@@ -37,7 +39,11 @@ export function txExplorerUrl(network: Network, txid: string): string | null {
  * reassembled chunks) so the reader sees the full memory as text; without it a
  * pointer falls back to its raw hex, which is what to show if resolution failed.
  */
-export function toMemoryView(coin: LiveCoin, network: Network, resolvedText?: string): MemoryView {
+export function toMemoryView(
+  coin: LiveCoin | HistoricalCoin,
+  network: Network,
+  resolvedText?: string,
+): MemoryView {
   return {
     outpoint: `${coin.outpoint.txid}:${coin.outpoint.outIdx}`,
     txid: coin.outpoint.txid,
@@ -46,6 +52,7 @@ export function toMemoryView(coin: LiveCoin, network: Network, resolvedText?: st
     author: authorOf(coin.memo.kind),
     confirmed: coin.confirmed,
     authorVerified: coin.authorVerified,
+    spent: "spent" in coin ? coin.spent : false,
     content: contentView(coin, resolvedText),
     explorerUrl: txExplorerUrl(network, coin.outpoint.txid),
   };

@@ -1,6 +1,7 @@
 import { beforeAll, describe, expect, test } from "bun:test";
 import { Address, Ecc, Script, fromHex } from "ecash-lib";
 import {
+  type AddressTx,
   DUST_SATS,
   type MemoCoinSource,
   MemoReader,
@@ -188,5 +189,60 @@ describe("MemoReader.resolveText", () => {
     const [coin] = await reader.listLiveCoins(ADDRESS);
 
     await expect(reader.resolveText(coin!)).rejects.toThrow();
+  });
+});
+
+/** A memo tx for the history source: OP_RETURN + a dust memo coin, optionally spent. */
+function memoTx(txid: string, value: string, spent: boolean): AddressTx {
+  return {
+    txid,
+    blockHeight: 100,
+    outputs: [
+      { script: encodeMemo(memory(text(value))), sats: 0n, spent: false },
+      { script: OWNER, sats: DUST_SATS, spent },
+    ],
+  };
+}
+
+describe("MemoReader.listAllCoins (history)", () => {
+  function historySource(txs: AddressTx[]): MemoCoinSource {
+    return {
+      utxos: async () => [],
+      outputScripts: async () => [],
+      history: async () => txs,
+    };
+  }
+
+  test("returns every memory ever minted, flagging the spent ones", async () => {
+    const reader = new MemoReader(
+      historySource([memoTx(AA, "still live", false), memoTx(BB, "forgotten one", true)]),
+    );
+
+    const coins = await reader.listAllCoins(ADDRESS);
+    const byTxid = Object.fromEntries(coins.map((c) => [c.outpoint.txid, c]));
+
+    expect(coins).toHaveLength(2);
+    expect(byTxid[AA]!.spent).toBe(false);
+    expect(byTxid[AA]!.memo.content).toEqual({ type: "text", text: "still live" });
+    expect(byTxid[BB]!.spent).toBe(true);
+    expect(byTxid[BB]!.memo.content).toEqual({ type: "text", text: "forgotten one" });
+  });
+
+  test("ignores non-memo dust and foreign transactions", async () => {
+    const foreign: AddressTx = {
+      txid: CC,
+      blockHeight: 100,
+      outputs: [{ script: OWNER, sats: DUST_SATS, spent: false }], // a plain dust coin, no memo
+    };
+    const reader = new MemoReader(historySource([memoTx(AA, "real", false), foreign]));
+
+    const coins = await reader.listAllCoins(ADDRESS);
+    expect(coins).toHaveLength(1);
+    expect(coins[0]!.outpoint.txid).toBe(AA);
+  });
+
+  test("throws when the source has no history support", async () => {
+    const { src } = source([], {});
+    await expect(new MemoReader(src).listAllCoins(ADDRESS)).rejects.toThrow();
   });
 });
