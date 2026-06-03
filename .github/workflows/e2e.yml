@@ -80,18 +80,21 @@ jobs:
           echo "node did not come up in time" >&2
           exit 1
 
-      - name: Fund the agent address
+      - name: Fund the agent and consensus addresses
         run: |
           CLI="bitcoin-cli $RPC_ARGS -datadir=$DATADIR"
           AGENT="$(bun test/e2e/print-address.ts agent)"
+          CONSENSUS="$(bun test/e2e/print-address.ts consensus)"
           PAD="$(bun test/e2e/print-address.ts human)"
           echo "agent: $AGENT"
+          echo "consensus: $CONSENSUS"
           # The Minter spends every funding coin of an address at once, and
-          # coinbase outputs mature after 100 blocks. So generate the agent's
-          # coins directly (signed by our own keys via the Minter, not the node
-          # wallet), then mine 100 more blocks to a different address so every
-          # agent coin is mature and spendable.
+          # coinbase outputs mature after 100 blocks. So generate the agent's and
+          # the 2-of-2 consensus address's coins directly (signed by our own keys,
+          # not the node wallet), then mine 100 more blocks to a different address
+          # so every funding coin is mature and spendable.
           $CLI generatetoaddress 2 "$AGENT" >/dev/null
+          $CLI generatetoaddress 2 "$CONSENSUS" >/dev/null
           $CLI generatetoaddress 100 "$PAD" >/dev/null
           echo "tip height: $($CLI getblockcount)"
 

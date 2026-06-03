@@ -122,7 +122,12 @@ function card(memory) {
   if (memory.content.type === "encrypted") row.append(tag("encrypted", "encrypted"));
   const author = document.createElement("span");
   author.className = "author";
-  author.textContent = memory.author === "human" ? "human · durable pin" : "agent · working memory";
+  author.textContent =
+    memory.kind === "consensus"
+      ? "team · 2-of-2 consensus"
+      : memory.kind === "pin"
+        ? "human · durable pin"
+        : "agent · working memory";
   row.append(author);
   el.append(row);
 
