@@ -118,6 +118,8 @@ function card(memory) {
     tag(memory.kind, memory.kind),
     tag(memory.confirmed ? "live" : "spent", memory.confirmed ? "live" : "pending"),
   );
+  if (memory.authorVerified) row.append(tag("signed", "signed"));
+  if (memory.content.type === "encrypted") row.append(tag("encrypted", "encrypted"));
   const author = document.createElement("span");
   author.className = "author";
   author.textContent = memory.author === "human" ? "human · durable pin" : "agent · working memory";
@@ -128,6 +130,9 @@ function card(memory) {
   if (memory.content.type === "text") {
     content.className = "content";
     content.textContent = memory.content.text;
+  } else if (memory.content.type === "encrypted") {
+    content.className = "content encrypted";
+    content.textContent = "encrypted — readable only with the key";
   } else {
     content.className = "content pointer";
     content.textContent = `pointer ${memory.content.pointerHex}`;

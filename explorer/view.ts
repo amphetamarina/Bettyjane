@@ -5,7 +5,8 @@ import type { Network } from "../src/infrastructure/ecash/network.js";
 
 export type MemoryContentView =
   | { readonly type: "text"; readonly text: string; readonly viaPointer: boolean }
-  | { readonly type: "pointer"; readonly pointerHex: string };
+  | { readonly type: "pointer"; readonly pointerHex: string }
+  | { readonly type: "encrypted" };
 
 export interface MemoryView {
   readonly outpoint: string;
@@ -14,6 +15,8 @@ export interface MemoryView {
   readonly kind: MemoKind;
   readonly author: Author;
   readonly confirmed: boolean;
+  /** Whether the coin's memo carries a valid author signature (AMP-239). */
+  readonly authorVerified: boolean;
   readonly content: MemoryContentView;
   readonly explorerUrl: string | null;
 }
@@ -42,6 +45,7 @@ export function toMemoryView(coin: LiveCoin, network: Network, resolvedText?: st
     kind: coin.memo.kind,
     author: authorOf(coin.memo.kind),
     confirmed: coin.confirmed,
+    authorVerified: coin.authorVerified,
     content: contentView(coin, resolvedText),
     explorerUrl: txExplorerUrl(network, coin.outpoint.txid),
   };
@@ -50,7 +54,7 @@ export function toMemoryView(coin: LiveCoin, network: Network, resolvedText?: st
 function contentView(coin: LiveCoin, resolvedText?: string): MemoryContentView {
   const content = coin.memo.content;
   if (content.type === "text") return { type: "text", text: content.text, viaPointer: false };
-  if (content.type === "encrypted") return { type: "text", text: "[encrypted]", viaPointer: false };
+  if (content.type === "encrypted") return { type: "encrypted" };
   if (resolvedText !== undefined) return { type: "text", text: resolvedText, viaPointer: true };
   return { type: "pointer", pointerHex: Buffer.from(content.pointer).toString("hex") };
 }
