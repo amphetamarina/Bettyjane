@@ -14,12 +14,24 @@
 
 import "ecash-lib/dist/initNodeJs.js";
 import {
+  ConsensusMinter,
   DEFAULT_NAMESPACE,
+  HashEmbedder,
+  type LiveCoin,
+  type LoadedMemory,
+  MAX_MEMORY_BYTES,
   MemoReader,
   Minter,
+  type VectoredMemory,
   assessFunding,
+  coinId,
+  consensus,
   decodeMemoHex,
+  loadMemory,
   loadWallet,
+  planConsolidation,
+  sequentialMinter,
+  text,
   type Memo,
   type Network,
 } from "../src/index";
@@ -27,28 +39,42 @@ import { ChronikClient } from "chronik-client";
 import { networkConfig } from "../src/infrastructure/ecash/network";
 import { DUST_SATS } from "../src/infrastructure/ecash/protocol";
 import { MalformedMemoError, UnsupportedVersionError } from "../src/infrastructure/ecash/errors";
+import { renderTurn } from "../hooks/distill";
+import { distill } from "../hooks/distiller";
 
 const NETWORKS: readonly Network[] = ["mainnet", "testnet", "regtest"];
 
 const USAGE = `bj — Bettyjane command-line tool
 
 Usage:
-  bj inspect <txid> [--network <net>] [--json]
-  bj pin <note>     [--network <net>]
-  bj unpin <id>     [--network <net>]
-  bj init           [--network <net>] [--namespace <name>] [--pin <note> ...]
+  bj load             [--network <net>] [--namespace <name>]
+  bj remember <note>  [--network <net>] [--namespace <name>]
+  bj forget <id>      [--network <net>] [--namespace <name>]
+  bj private <note>   [--network <net>] [--namespace <name>]
+  bj consensus <note> [--network <net>]
+  bj capture          [--network <net>] [--transcript <file>]   (else reads the turn on stdin)
+  bj consolidate      [--network <net>]
+  bj pin <note>       [--network <net>]
+  bj unpin <id>       [--network <net>]
+  bj init             [--network <net>] [--namespace <name>] [--pin <note> ...]
+  bj inspect <txid>   [--network <net>] [--json]
 
 Options:
   -n, --network <net>   mainnet | testnet | regtest   (inspect defaults to mainnet,
                         the others default to $BJ_NETWORK or testnet)
-  --namespace <name>    derive a named memory namespace's addresses (init only;
-                        default namespace reproduces the original addresses)
+  --namespace <name>    a named memory namespace (default reproduces the original address)
+  --transcript <file>   a Claude Code transcript to render the latest turn from (capture)
   --json                machine-readable output (inspect only)
   --pin <note>          a pin to mint during init (repeatable)
   -h, --help            show help
 
-The pin / unpin / init commands read the wallet from BJ_MNEMONIC /
-BJ_NETWORK / BJ_PASSPHRASE. pin and unpin sign with the human key.
+Every command but inspect reads the wallet from BJ_MNEMONIC / BJ_NETWORK /
+BJ_PASSPHRASE. remember/forget/private/capture/consolidate sign with the agent
+key; pin/unpin with the human key; consensus needs both. capture distills the
+turn with BJ_DISTILL_CMD (any model CLI) or the bundled claude.
+
+These verbs are the portable core: any agent harness drives Bettyjane by shelling
+out to them — no Claude Code hooks required.
 `;
 
 function fail(message: string): never {
@@ -74,6 +100,20 @@ async function main() {
   switch (subcommand) {
     case "inspect":
       return runInspect(rest);
+    case "load":
+      return runLoad(rest);
+    case "remember":
+      return runRemember(rest);
+    case "forget":
+      return runForget(rest);
+    case "private":
+      return runPrivate(rest);
+    case "consensus":
+      return runConsensus(rest);
+    case "capture":
+      return runCapture(rest);
+    case "consolidate":
+      return runConsolidate(rest);
     case "pin":
       return runPin(rest);
     case "unpin":
@@ -91,6 +131,149 @@ async function main() {
 function walletFor(network: Network) {
   if (!process.env.BJ_MNEMONIC) fail("BJ_MNEMONIC is not set; export the team mnemonic first.");
   return loadWallet({ ...process.env, BJ_NETWORK: network });
+}
+
+interface CommonArgs {
+  network: Network;
+  namespace: string;
+  transcript?: string;
+  positional: string;
+}
+
+/** Parse the flags shared by the memory verbs: network, namespace, optional transcript, and a positional. */
+function parseCommon(args: string[]): CommonArgs {
+  const out: CommonArgs = {
+    network: parseNetwork(process.env.BJ_NETWORK ?? "testnet"),
+    namespace: DEFAULT_NAMESPACE,
+    positional: "",
+  };
+  for (let i = 0; i < args.length; i++) {
+    const a = args[i]!;
+    if (a === "-n" || a === "--network") out.network = parseNetwork(args[++i]);
+    else if (a === "--namespace") out.namespace = args[++i] ?? fail("--namespace needs a name");
+    else if (a === "--transcript") out.transcript = args[++i] ?? fail("--transcript needs a file");
+    else if (!a.startsWith("-")) out.positional = out.positional ? `${out.positional} ${a}` : a;
+    else fail(`Unknown flag: ${a}`);
+  }
+  return out;
+}
+
+async function runLoad(args: string[]): Promise<void> {
+  const { network, namespace } = parseCommon(args);
+  const wallet = walletFor(network);
+  const reader = MemoReader.fromNetwork(network);
+  const memory = await loadMemory(reader, {
+    pin: wallet.address("human", namespace),
+    memory: wallet.address("agent", namespace),
+  });
+  process.stdout.write(renderMemory(network, wallet.address("agent", namespace), memory));
+}
+
+function renderMemory(network: Network, agentAddress: string, memory: LoadedMemory): string {
+  const lines = [`Bettyjane memory (${network}). Agent address: ${agentAddress}`];
+  lines.push(memory.pins.length ? "Pins (human, durable):" : "Pins: (none)");
+  for (const pin of memory.pins) lines.push(`  - ${pin}`);
+  lines.push(memory.memories.length ? "Memories (agent, working):" : "Memories: (none yet)");
+  for (const m of memory.memories) lines.push(`  - [${m.id}] ${m.text}`);
+  return `${lines.join("\n")}\n`;
+}
+
+async function runRemember(args: string[]): Promise<void> {
+  const { network, namespace, positional: note } = parseCommon(args);
+  if (!note) fail("Missing note to remember.");
+  const wallet = walletFor(network);
+  const { txid } = await Minter.fromNetwork(network).remember(note, wallet.signer("agent", namespace));
+  console.log(`remembered "${note}" -> ${txid}`);
+}
+
+async function runForget(args: string[]): Promise<void> {
+  const { network, namespace, positional: id } = parseCommon(args);
+  if (!id) fail("Missing coin id (txid:vout) to forget.");
+  const wallet = walletFor(network);
+  const { txid } = await Minter.fromNetwork(network).forget(id, wallet.signer("agent", namespace));
+  console.log(`forgot ${id} -> ${txid}`);
+}
+
+async function runPrivate(args: string[]): Promise<void> {
+  const { network, namespace, positional: note } = parseCommon(args);
+  if (!note) fail("Missing note to remember privately.");
+  const wallet = walletFor(network);
+  const signer = wallet.signer("agent", namespace);
+  // Encrypt to the agent's own key so the agent can read it back.
+  const { txid } = await Minter.fromNetwork(network).rememberPrivate(note, signer.pubkey, signer);
+  console.log(`remembered privately -> ${txid}`);
+}
+
+async function runConsensus(args: string[]): Promise<void> {
+  const { network, positional: note } = parseCommon(args);
+  if (!note) fail("Missing note for the consensus memo.");
+  const wallet = walletFor(network);
+  const agent = wallet.signer("agent");
+  const human = wallet.signer("human");
+  const signers = [
+    { pubkey: agent.pubkey, seckey: agent.seckey },
+    { pubkey: human.pubkey, seckey: human.seckey },
+  ];
+  const prefix = networkConfig(network).prefix;
+  const { txid } = await ConsensusMinter.fromNetwork(network).mint(consensus(text(note)), signers, prefix);
+  console.log(`consensus "${note}" -> ${txid}`);
+}
+
+/** How much of a rendered turn to hand the distiller; bounds the model's input. */
+const TURN_BUDGET = 16000;
+
+async function runCapture(args: string[]): Promise<void> {
+  const { network, namespace, transcript } = parseCommon(args);
+  const turn = transcript
+    ? renderTurn((await Bun.file(transcript).text()).split("\n"), TURN_BUDGET)
+    : (await Bun.stdin.text()).trim();
+  if (!turn) {
+    console.error("capture: empty turn, nothing to distill");
+    return;
+  }
+  const notes = await distill(turn, { maxBytes: MAX_MEMORY_BYTES });
+  if (notes.length === 0) {
+    console.error("capture: distiller found nothing worth keeping");
+    return;
+  }
+  const wallet = walletFor(network);
+  const signer = wallet.signer("agent", namespace);
+  // A change-threading minter so a turn's notes mint back to back without conflict.
+  const minter = sequentialMinter(network);
+  for (const note of notes) {
+    const { txid } = await minter.remember(note, signer);
+    console.log(`remembered "${note}" -> ${txid}`);
+  }
+}
+
+const SIMILARITY_THRESHOLD = 0.9;
+
+async function runConsolidate(args: string[]): Promise<void> {
+  const { network, namespace } = parseCommon(args);
+  const wallet = walletFor(network);
+  const reader = MemoReader.fromNetwork(network);
+  const address = wallet.address("agent", namespace);
+  const coins = await reader.listLiveCoins(address);
+  const stale = planConsolidation(await vectoredMemories(reader, coins), SIMILARITY_THRESHOLD);
+  if (stale.length === 0) {
+    console.error("consolidate: no near-duplicates to tidy");
+    return;
+  }
+  const minter = Minter.fromNetwork(network);
+  const signer = wallet.signer("agent", namespace);
+  for (const id of stale) {
+    const { txid } = await minter.forget(id, signer);
+    console.log(`forgot near-duplicate ${id} -> ${txid}`);
+  }
+}
+
+async function vectoredMemories(reader: MemoReader, coins: readonly LiveCoin[]): Promise<VectoredMemory[]> {
+  const embedder = new HashEmbedder();
+  const memories: VectoredMemory[] = [];
+  for (const coin of coins) {
+    memories.push({ id: coinId(coin.outpoint), vector: await embedder.embed(await reader.resolveText(coin)) });
+  }
+  return memories;
 }
 
 async function runPin(args: string[]): Promise<void> {
