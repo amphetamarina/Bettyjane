@@ -67,6 +67,49 @@ plain constructor for tests.
   with an `(AMP-NNN)` suffix when a Linear issue applies. One revertable unit per
   commit. Each issue ships as a branch and PR off `main`.
 
+## Using Bettyjane as memory from any agent harness
+
+Bettyjane's portable interface is the **`bj` CLI** — every capability is a verb,
+so any agent runtime (Claude Code, Codex, opencode, Grok, Hermes, or a plain
+shell loop) gets persistent on-chain memory by shelling out to it. No harness-
+specific hooks are required.
+
+Configure once: `BJ_MNEMONIC` (the team wallet), `BJ_NETWORK` (`mainnet` /
+`testnet` / `regtest`), and optionally `BJ_DISTILL_CMD` to pick the model CLI used
+for distillation (defaults to the bundled `claude`):
+
+```bash
+export BJ_MNEMONIC="twelve word phrase ..."
+export BJ_NETWORK=mainnet
+export BJ_DISTILL_CMD="opencode run"   # optional; or "codex exec", "grok", ...
+```
+
+The verbs (`bun bin/bj.ts <verb>`, or against `$CLAUDE_PLUGIN_ROOT/bin/bj.ts` when
+installed as a plugin):
+
+| Verb | Purpose |
+| --- | --- |
+| `load` | print the team's current memory (pins + working set) — read at turn start |
+| `capture` | distill a turn (on stdin, or `--transcript`) and mint what's worth keeping |
+| `consolidate` | forget near-duplicate memories — run at session end |
+| `remember <note>` / `forget <id>` | the agent's explicit verbs |
+| `private <note>` | remember an encrypted (private) note |
+| `consensus <note>` | mint a 2-of-2 memo both keys must sign |
+| `pin <note>` / `unpin <id>` | the human's durable verbs |
+
+A minimal **runner** is three calls around a turn — the same loop a Claude Code
+hook used to automate:
+
+```bash
+bun bin/bj.ts load                          # before the turn: load memory into context
+# ... the agent takes its turn ...
+printf '%s' "$turn_text" | bun bin/bj.ts capture   # after the turn: distill + mint
+bun bin/bj.ts consolidate                   # at session end: tidy duplicates
+```
+
+On Claude Code these same verbs are exposed as `/`-commands (skills), so the agent
+can be asked to remember, capture, load, and so on directly.
+
 ## eCash / ecash-lib gotchas
 
 - The native WASM (ECC, hashers) wires up on `import ... from "ecash-lib"`, but
