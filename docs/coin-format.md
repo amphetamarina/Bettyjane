@@ -35,7 +35,7 @@ Each `<...>` is a pushdata op. The whole script must stay within eCash's
 
 | Byte | Name | Values |
 | --- | --- | --- |
-| 0 | `VERSION` | `0x01` (this version) |
+| 0 | `VERSION` | `0x01` (unsigned), `0x02` (author-signed, see below) |
 | 1 | `KIND` | `0x01` = `MEMORY` (agent), `0x02` = `PIN` (human) |
 | 2 | `CONTENT_TYPE` | `0x00` = `TEXT` (inline UTF-8), `0x01` = `POINTER` (off-coin reference) |
 
@@ -61,6 +61,35 @@ is ambiguous to parse. A 3-byte push never collapses.
   chunks concatenated. A pointer payload holds at most
   `MAX_POINTER_CHUNKS = floor(211 / 32) = 6` txids, so the longest storable
   memory is `MAX_MEMORY_BYTES = 6 × 211 = 1266` bytes.
+
+### Author signatures (v2, AMP-239)
+
+A coin's *ownership* already proves who can spend it, but that proof only holds in
+the spend transaction. A memo read out of context — copied from a block explorer,
+say — carried no proof of its author. A **v2** memo closes that gap by appending
+one more push to the v1 layout:
+
+```
+OP_RETURN <LOKAD_ID> <HEADER (version 0x02)> <PAYLOAD> <SIGNATURE>
+```
+
+| Push | Size | Contents |
+| --- | --- | --- |
+| `SIGNATURE` | 65 bytes | A recoverable ECDSA signature (`SIGNATURE_BYTES`) over `sha256(LOKAD_ID ‖ HEADER ‖ PAYLOAD)`, made with the author's key. |
+
+Verification needs nothing else on chain: the verifier recovers the signing
+pubkey from the signature (`Ecc.recoverSig`), hashes it (`shaRmd160`), and checks
+that hash equals the pubkey hash of the address holding the coin. The signature
+is over the v2 header, so altering the version, kind, content type, or payload
+invalidates it. As with `KIND`, this is not a new permission — the controlling
+key is still the only authority — it is *portable proof of authorship*.
+
+Because the 65-byte signature consumes part of the `OP_RETURN` budget, an inline
+signed payload is capped at `MAX_SIGNED_PAYLOAD_BYTES` (the unsigned limit minus
+the signature push). The minter signs inline `TEXT` notes that fit; longer notes
+and `POINTER` heads fall back to the unsigned v1 encoding. v1 coins remain valid
+and decode unchanged — `decodeMemo` accepts both versions and drops the signature;
+`decodeSignedMemo` / `verifyMemoAuthor` expose and check it.
 
 ### The large-content pointer scheme (AMP-208)
 

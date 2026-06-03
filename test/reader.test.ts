@@ -1,14 +1,17 @@
 import { beforeAll, describe, expect, test } from "bun:test";
-import { Address, Script, fromHex } from "ecash-lib";
+import { Address, Ecc, Script, fromHex } from "ecash-lib";
 import {
   DUST_SATS,
   type MemoCoinSource,
   MemoReader,
+  type Signer,
   type UnspentCoin,
   encodeMemo,
+  encodeSignedMemo,
   memory,
   pin,
   pointer,
+  signingDigest,
   text,
   Wallet,
 } from "../src/index";
@@ -17,11 +20,20 @@ const PHRASE =
   "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about";
 
 let OWNER: Script;
+let SIGNER: Signer;
+let ECC: Ecc;
 
 beforeAll(() => {
-  const signer = Wallet.fromMnemonic(PHRASE, { prefix: "ectest" }).signer("agent");
-  OWNER = Address.fromCashAddress(signer.address).toScript();
+  SIGNER = Wallet.fromMnemonic(PHRASE, { prefix: "ectest" }).signer("agent");
+  OWNER = Address.fromCashAddress(SIGNER.address).toScript();
+  ECC = new Ecc();
 });
+
+/** A v2 memo script signed by the test's own (agent) key, as the minter would mint it. */
+function signed(memoText: string): Script {
+  const memo = memory(text(memoText));
+  return encodeSignedMemo(memo, ECC.signRecoverable(SIGNER.seckey, signingDigest(memo)));
+}
 
 const ADDRESS = "ectest:qqfoobar";
 
@@ -71,6 +83,30 @@ describe("MemoReader.listLiveCoins", () => {
     expect(coins[0]!.sats).toBe(DUST_SATS);
     expect(coins[0]!.blockHeight).toBe(100);
     expect(coins[0]!.confirmed).toBe(true);
+  });
+
+  test("marks a signed coin authorVerified and an unsigned coin not (AMP-239)", async () => {
+    const { src } = source([utxo(AA, DUST_SATS), utxo(BB, DUST_SATS)], {
+      [AA]: [signed("a signed memory"), OWNER],
+      [BB]: [encodeMemo(memory(text("an unsigned memory"))), OWNER],
+    });
+
+    const coins = await new MemoReader(src, ECC).listLiveCoins(ADDRESS);
+    const byTxid = Object.fromEntries(coins.map((c) => [c.outpoint.txid, c]));
+
+    expect(byTxid[AA]!.authorVerified).toBe(true);
+    expect(byTxid[BB]!.authorVerified).toBe(false);
+  });
+
+  test("verifies many signed coins read concurrently without wasm aliasing", async () => {
+    const txids = ["1a", "2b", "3c", "4d", "5e"].map((p) => p.repeat(32));
+    const utxos = txids.map((t) => utxo(t, DUST_SATS));
+    const txs = Object.fromEntries(txids.map((t, i) => [t, [signed(`memory ${i}`), OWNER]]));
+
+    const coins = await new MemoReader(source(utxos, txs).src, ECC).listLiveCoins(ADDRESS);
+
+    expect(coins).toHaveLength(txids.length);
+    expect(coins.every((c) => c.authorVerified)).toBe(true);
   });
 
   test("skips funding and change coins without fetching their tx", async () => {
