@@ -81,6 +81,8 @@ export {
   OP_RETURN_VOUT,
 } from "./infrastructure/ecash/minter";
 
+export { changeThreadingMinter, sequentialMinter } from "./infrastructure/ecash/sequential-minter";
+
 export type { LiveCoin, MemoCoinSource, UnspentCoin } from "./infrastructure/ecash/reader";
 export { MemoReader } from "./infrastructure/ecash/reader";
 
