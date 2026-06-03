@@ -79,14 +79,28 @@ export {
 export type { LiveCoin, MemoCoinSource, UnspentCoin } from "./infrastructure/ecash/reader";
 export { MemoReader } from "./infrastructure/ecash/reader";
 
-export { decodeMemo, decodeMemoHex, encodeMemo, isMemoScript } from "./infrastructure/ecash/memo-codec";
+export type { SignedMemo } from "./infrastructure/ecash/memo-codec";
+export {
+  decodeMemo,
+  decodeMemoHex,
+  decodeSignedMemo,
+  encodeMemo,
+  encodeSignedMemo,
+  isMemoScript,
+  signingDigest,
+  verifyMemoAuthor,
+} from "./infrastructure/ecash/memo-codec";
 export {
   DUST_SATS,
   LOKAD_ID,
   MAX_MEMORY_BYTES,
   MAX_PAYLOAD_BYTES,
   MAX_POINTER_CHUNKS,
+  MAX_SIGNED_PAYLOAD_BYTES,
   PROTOCOL_VERSION,
+  SIGNATURE_BYTES,
+  SIGNED_PROTOCOL_VERSION,
+  SUPPORTED_VERSIONS,
   TXID_BYTES,
 } from "./infrastructure/ecash/protocol";
 export {
