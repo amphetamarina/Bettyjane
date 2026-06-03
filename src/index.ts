@@ -92,7 +92,14 @@ export {
   consensusSignatory,
 } from "./infrastructure/ecash/multisig";
 
-export type { LiveCoin, MemoCoinSource, UnspentCoin } from "./infrastructure/ecash/reader";
+export type {
+  AddressTx,
+  HistoricalCoin,
+  HistoryOutput,
+  LiveCoin,
+  MemoCoinSource,
+  UnspentCoin,
+} from "./infrastructure/ecash/reader";
 export { MemoReader } from "./infrastructure/ecash/reader";
 
 export type { SignedMemo } from "./infrastructure/ecash/memo-codec";
