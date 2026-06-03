@@ -37,7 +37,7 @@ export const DUST_SATS = DEFAULT_DUST_SATS;
 type ContentType = MemoContent["type"];
 
 const KIND_TO_CODE: Record<MemoKind, number> = { memory: 0x01, pin: 0x02 };
-const CONTENT_TO_CODE: Record<ContentType, number> = { text: 0x00, pointer: 0x01 };
+const CONTENT_TO_CODE: Record<ContentType, number> = { text: 0x00, pointer: 0x01, encrypted: 0x02 };
 const CODE_TO_KIND = invert(KIND_TO_CODE);
 const CODE_TO_CONTENT = invert(CONTENT_TO_CODE);
 
