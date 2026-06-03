@@ -39,8 +39,8 @@ import { ChronikClient } from "chronik-client";
 import { networkConfig } from "../src/infrastructure/ecash/network";
 import { DUST_SATS } from "../src/infrastructure/ecash/protocol";
 import { MalformedMemoError, UnsupportedVersionError } from "../src/infrastructure/ecash/errors";
-import { renderTurn } from "../hooks/distill";
-import { distill } from "../hooks/distiller";
+import { renderTurn } from "../capture/turn";
+import { distill } from "../capture/distiller";
 
 const NETWORKS: readonly Network[] = ["mainnet", "testnet", "regtest"];
 

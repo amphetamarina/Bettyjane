@@ -15,7 +15,7 @@
  * consistent across models.
  */
 
-import { parseMemoryOps, parseNotes } from "./distill";
+import { parseMemoryOps, parseNotes } from "./turn";
 
 const SYSTEM_PROMPT = `You distill ONE turn of an AI agent's working session into durable notes for a shared, permanent, on-chain team memory. Storage is cheap, so capture generously: record every fact a future session would be glad to already know.
 

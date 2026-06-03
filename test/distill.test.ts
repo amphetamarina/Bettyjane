@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { truncateToBytes } from "../hooks/distill";
+import { truncateToBytes } from "../capture/turn";
 
 describe("truncateToBytes", () => {
   test("leaves a short ASCII string untouched", () => {
