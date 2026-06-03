@@ -36,7 +36,7 @@ Each `<...>` is a pushdata op. The whole script must stay within eCash's
 | Byte | Name | Values |
 | --- | --- | --- |
 | 0 | `VERSION` | `0x01` (unsigned), `0x02` (author-signed, see below) |
-| 1 | `KIND` | `0x01` = `MEMORY` (agent), `0x02` = `PIN` (human) |
+| 1 | `KIND` | `0x01` = `MEMORY` (agent), `0x02` = `PIN` (human), `0x03` = `CONSENSUS` (2-of-2, see below) |
 | 2 | `CONTENT_TYPE` | `0x00` = `TEXT` (inline UTF-8), `0x01` = `POINTER` (off-coin reference), `0x02` = `ENCRYPTED` (ECIES ciphertext) |
 
 `KIND` records who authored the coin and its role in the two-author model: the
@@ -90,6 +90,28 @@ the signature push). The minter signs inline `TEXT` notes that fit; longer notes
 and `POINTER` heads fall back to the unsigned v1 encoding. v1 coins remain valid
 and decode unchanged — `decodeMemo` accepts both versions and drops the signature;
 `decodeSignedMemo` / `verifyMemoAuthor` expose and check it.
+
+### Consensus memories (2-of-2, AMP-244)
+
+Above the unilateral agent memories and human pins sits a shared-truth tier: a
+**consensus memory** that neither key can write or forget alone. Its coin lives
+at a **2-of-2 P2SH** address derived from both public keys, so every spend —
+minting or forgetting — needs both signatures. The memo carries
+`KIND = CONSENSUS`; as always the byte only labels it, the 2-of-2 script is the
+actual enforcement.
+
+- `consensusRedeemScript([pubA, pubB])` builds the `OP_2 <pubA> <pubB> OP_2
+  OP_CHECKMULTISIG` redeem script (pubkeys in canonical order, so the address is
+  independent of argument order); `consensusAddress(...)` is its **P2SH20**
+  cashaddr (eCash has P2SH20 only — fine for a 2-of-2 between two known keys).
+- `ConsensusMinter.mint`/`forget` spend the P2SH coin with `consensusSignatory`,
+  which signs the input with both keys (in pubkey order, as `OP_CHECKMULTISIG`
+  requires) and assembles the `OP_0 <sigA> <sigB> <redeemScript>` scriptSig.
+
+Because Bettyjane derives both keys from one mnemonic, the two signatures are
+made together rather than handed between machines. A cross-machine PSBT handoff —
+where the human and agent run on different hosts — is a later refinement; the
+on-chain coin is identical either way.
 
 ### Encrypted private memories (AMP-242)
 
