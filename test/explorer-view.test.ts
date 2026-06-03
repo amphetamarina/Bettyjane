@@ -37,6 +37,7 @@ describe("toMemoryView", () => {
       author: "agent",
       confirmed: true,
       authorVerified: false,
+      spent: false,
       content: { type: "text", text: "remember the milk", viaPointer: false },
       explorerUrl: `https://explorer.e.cash/tx/${"a".repeat(64)}`,
     });
