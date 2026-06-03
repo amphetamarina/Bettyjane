@@ -2,7 +2,8 @@ export type MemoKind = "memory" | "pin";
 
 export type MemoContent =
   | { readonly type: "text"; readonly text: string }
-  | { readonly type: "pointer"; readonly pointer: Uint8Array };
+  | { readonly type: "pointer"; readonly pointer: Uint8Array }
+  | { readonly type: "encrypted"; readonly ciphertext: Uint8Array };
 
 export interface Memo {
   readonly kind: MemoKind;
@@ -24,6 +25,11 @@ export function text(value: string): MemoContent {
 export function pointer(bytes: Uint8Array): MemoContent {
   if (bytes.length === 0) throw new EmptyMemoError();
   return { type: "pointer", pointer: bytes };
+}
+
+export function encrypted(ciphertext: Uint8Array): MemoContent {
+  if (ciphertext.length === 0) throw new EmptyMemoError();
+  return { type: "encrypted", ciphertext };
 }
 
 export function memory(content: MemoContent): Memo {

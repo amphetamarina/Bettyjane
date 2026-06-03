@@ -11,6 +11,7 @@
     "watch": "bun explorer/server.ts"
   },
   "dependencies": {
+    "@noble/curves": "^2.2.0",
     "chronik-client": "^3.0.0",
     "ecash-lib": "^4.12.0"
   },

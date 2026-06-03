@@ -228,10 +228,7 @@ function parse(script: Script): ParsedMemo | null {
   const payload = nextData(ops);
   if (!payload || payload.length === 0) throw new MalformedMemoError("missing payload");
 
-  const content: MemoContent =
-    contentType === "text"
-      ? { type: "text", text: new TextDecoder().decode(payload) }
-      : { type: "pointer", pointer: payload };
+  const content = contentFrom(contentType, payload);
 
   let signature: Uint8Array | null = null;
   if (version === SIGNED_PROTOCOL_VERSION) {
@@ -262,6 +259,12 @@ function headerBytes(version: number, memo: Memo): Uint8Array {
   return Uint8Array.of(version, kindToCode(memo.kind), contentTypeToCode(memo.content.type));
 }
 
+function contentFrom(contentType: MemoContent["type"], payload: Uint8Array): MemoContent {
+  if (contentType === "text") return { type: "text", text: new TextDecoder().decode(payload) };
+  if (contentType === "encrypted") return { type: "encrypted", ciphertext: payload };
+  return { type: "pointer", pointer: payload };
+}
+
 /** One eMPP section's bytes: LOKAD ++ [version, kind, contentType] ++ payload. */
 function memoSection(memo: Memo): Uint8Array {
   const payload = payloadOf(memo.content);
@@ -288,15 +291,13 @@ function decodeSection(section: Uint8Array): Memo {
   const contentType = codeToContentType(header[2]!);
   const payload = section.subarray(LOKAD_ID.length + 3);
   if (payload.length === 0) throw new MalformedMemoError("eMPP section missing payload");
-  const content: MemoContent =
-    contentType === "text"
-      ? { type: "text", text: new TextDecoder().decode(payload) }
-      : { type: "pointer", pointer: payload };
-  return { kind, content };
+  return { kind, content: contentFrom(contentType, payload) };
 }
 
 function payloadOf(content: MemoContent): Uint8Array {
-  return content.type === "text" ? strToBytes(content.text) : content.pointer;
+  if (content.type === "text") return strToBytes(content.text);
+  if (content.type === "encrypted") return content.ciphertext;
+  return content.pointer;
 }
 
 function digestOf(header: Uint8Array, payload: Uint8Array): Uint8Array {
