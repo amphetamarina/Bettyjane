@@ -119,7 +119,14 @@ describe("parseMemoriesQuery", () => {
     expect(parseMemoriesQuery({ address: "ecash:qq", network: "testnet" })).toEqual({
       address: "ecash:qq",
       network: "testnet",
+      includeSpent: false,
     });
+  });
+
+  test("reads the include-spent flag from the all param", () => {
+    expect(parseMemoriesQuery({ address: "ecash:qq", all: "1" }).includeSpent).toBe(true);
+    expect(parseMemoriesQuery({ address: "ecash:qq", all: "true" }).includeSpent).toBe(true);
+    expect(parseMemoriesQuery({ address: "ecash:qq" }).includeSpent).toBe(false);
   });
 
   test("defaults an unknown or missing network to mainnet", () => {

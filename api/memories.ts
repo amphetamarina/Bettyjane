@@ -34,15 +34,18 @@ function first(value: QueryValue): string {
   return ((Array.isArray(value) ? value[0] : value) ?? "").trim();
 }
 
-/** Pull the address and a whitelisted network (default mainnet) from a query. */
+/** Pull the address, a whitelisted network (default mainnet), and the include-spent flag from a query. */
 export function parseMemoriesQuery(query: Record<string, QueryValue>): {
   address: string;
   network: Network;
+  includeSpent: boolean;
 } {
   const networkParam = first(query.network);
+  const all = first(query.all).toLowerCase();
   return {
     address: first(query.address),
     network: NETWORKS.includes(networkParam as Network) ? (networkParam as Network) : "mainnet",
+    includeSpent: all === "1" || all === "true" || all === "yes",
   };
 }
 
@@ -66,12 +69,12 @@ function send(res: ApiResponse, code: number, body: unknown): void {
 
 export default async function handler(req: ApiRequest, res: ApiResponse): Promise<void> {
   try {
-    const { address, network } = parseMemoriesQuery(queryOf(req));
+    const { address, network, includeSpent } = parseMemoriesQuery(queryOf(req));
     if (!address) {
       send(res, 400, { error: "address is required" });
       return;
     }
-    send(res, 200, await fetchAddressMemories(address, network));
+    send(res, 200, await fetchAddressMemories(address, network, undefined, includeSpent));
   } catch (error) {
     send(res, 502, { error: error instanceof Error ? error.message : String(error) });
   }

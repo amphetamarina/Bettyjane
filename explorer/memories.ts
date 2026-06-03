@@ -21,13 +21,18 @@ export interface AddressMemories {
  *
  * Memories come back latest first: just-minted mempool coins lead, then
  * confirmed coins by descending block height, so the freshest memory is on top.
+ *
+ * With `includeSpent`, it returns the whole album instead of just the live set:
+ * every memory ever minted at the address, each flagged `spent` if it has since
+ * been forgotten (reconstructed from the address's transaction history).
  */
 export async function fetchAddressMemories(
   address: string,
   network: Network,
   reader: MemoReader = MemoReader.fromNetwork(networkConfig(network)),
+  includeSpent = false,
 ): Promise<AddressMemories> {
-  const coins = (await reader.listLiveCoins(address)).sort(
+  const coins = (includeSpent ? await reader.listAllCoins(address) : await reader.listLiveCoins(address)).sort(
     (a, b) => recency(b.blockHeight) - recency(a.blockHeight),
   );
   const memories = await Promise.all(
