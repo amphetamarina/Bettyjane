@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { parseMemoryOps } from "../hooks/distill";
+import { parseMemoryOps } from "../capture/turn";
 
 const envelope = (structured_output: unknown, extra: object = {}) =>
   JSON.stringify({ type: "result", is_error: false, result: "ok", structured_output, ...extra });
