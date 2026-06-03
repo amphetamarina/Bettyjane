@@ -14,6 +14,7 @@
 
 import "ecash-lib/dist/initNodeJs.js";
 import {
+  DEFAULT_NAMESPACE,
   MemoReader,
   Minter,
   assessFunding,
@@ -35,11 +36,13 @@ Usage:
   bj inspect <txid> [--network <net>] [--json]
   bj pin <note>     [--network <net>]
   bj unpin <id>     [--network <net>]
-  bj init           [--network <net>] [--pin <note> ...]
+  bj init           [--network <net>] [--namespace <name>] [--pin <note> ...]
 
 Options:
   -n, --network <net>   mainnet | testnet | regtest   (inspect defaults to mainnet,
                         the others default to $BJ_NETWORK or testnet)
+  --namespace <name>    derive a named memory namespace's addresses (init only;
+                        default namespace reproduces the original addresses)
   --json                machine-readable output (inspect only)
   --pin <note>          a pin to mint during init (repeatable)
   -h, --help            show help
@@ -124,17 +127,19 @@ async function runUnpin(args: string[]): Promise<void> {
 
 async function runInit(args: string[]): Promise<void> {
   let network = parseNetwork(process.env.BJ_NETWORK ?? "testnet");
+  let namespace = DEFAULT_NAMESPACE;
   const pins: string[] = [];
   for (let i = 0; i < args.length; i++) {
     const a = args[i]!;
     if (a === "-n" || a === "--network") network = parseNetwork(args[++i]);
+    else if (a === "--namespace") namespace = args[++i] ?? fail("--namespace needs a name");
     else if (a === "--pin") pins.push(args[++i] ?? fail("--pin needs a note"));
     else fail(`Unknown flag: ${a}`);
   }
 
   const wallet = walletFor(network);
-  const human = wallet.address("human");
-  const agent = wallet.address("agent");
+  const human = wallet.address("human", namespace);
+  const agent = wallet.address("agent", namespace);
   const config = networkConfig(network);
   const client = new ChronikClient([...config.chronikUrls]);
 
@@ -154,7 +159,7 @@ async function runInit(args: string[]): Promise<void> {
     reader.listLiveCoins(agent),
   ]);
 
-  console.log(`Bettyjane wallet (${network})`);
+  console.log(`Bettyjane wallet (${network}${namespace === DEFAULT_NAMESPACE ? "" : `, namespace "${namespace}"`})`);
   console.log(`  human / pin address:    ${human}`);
   console.log(`    funding: ${humanFunding.totalSats} sats (${humanFunding.funded ? "funded" : "NOT funded — fund this to pin"}), live pins: ${livePins.length}`);
   console.log(`  agent / memory address: ${agent}`);
@@ -169,7 +174,7 @@ async function runInit(args: string[]): Promise<void> {
 
   const results = await Minter.fromNetwork(network).mintAll(
     pins.map((p) => ({ kind: "pin" as const, content: { type: "text" as const, text: p } })),
-    wallet.signer("human"),
+    wallet.signer("human", namespace),
   );
   for (const r of results) console.log(`pinned -> ${r.txid}`);
 }

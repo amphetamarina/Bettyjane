@@ -30,11 +30,13 @@ export { AUTHORS, authorOf, kindOf } from "./domain/author";
 
 export type { Account, FromMnemonicOptions, Signer, SigningKey, WalletOptions } from "./infrastructure/ecash/wallet";
 export {
+  DEFAULT_NAMESPACE,
   InvalidEntropyError,
   Wallet,
   XEC_COIN_TYPE,
   derivationPath,
   generateMnemonic,
+  namespaceIndex,
 } from "./infrastructure/ecash/wallet";
 
 export type { Env } from "./infrastructure/ecash/keyring";

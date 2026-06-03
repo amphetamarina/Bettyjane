@@ -22,6 +22,35 @@ Each account derives a compressed secp256k1 public key, whose `HASH160`
 (`RIPEMD160(SHA256(pubkey))`) becomes a standard P2PKH **cashaddr** — the agent's
 *memory address* and the human's *pin address*.
 
+## Namespaces (AMP-243)
+
+A namespace partitions an author's memory into separate, independently watchable
+addresses — one per project or topic, say — without changing the two-author
+split. A namespace is the BIP-44 **address index** (the last path component),
+while the author stays on the account level:
+
+```
+m/44'/1899'/<account>'/0/<namespace index>
+```
+
+The namespace **name → index** mapping is a pure function of the name
+(`namespaceIndex(name)`), so there is no registry to keep in sync and the same
+name always derives the same address. The **default namespace** (`DEFAULT_NAMESPACE`,
+the empty string) is index `0`, so naming no namespace reproduces the original
+address byte-for-byte. Every other name hashes into the non-hardened index range
+and is nudged off `0`, so a named namespace can never collide with the default;
+two distinct names colliding is a 1-in-2³¹ event.
+
+```ts
+wallet.address("agent");              // default namespace — the original address
+wallet.address("agent", "billing");  // a separate, deterministic address
+wallet.signer("agent", "billing");   // its signing key, to mint/forget there
+```
+
+Each namespace address is funded and watched on its own (`bun run watch <address>`);
+fund it from the root address as needed. The CLI derives a namespace's addresses
+with `bj init --namespace <name>`.
+
 ## API
 
 The `Author` type and its mapping to a memo `KIND` are pure domain
