@@ -1,7 +1,7 @@
 import { Ecc, Script, fromHex, toHex } from "ecash-lib";
 import { ChronikClient } from "chronik-client";
 import type { Memo } from "../../domain/memo.js";
-import { decodeMemo, verifyMemoAuthor } from "./memo-codec.js";
+import { decodeMemo, decodeMemoBatch, verifyMemoAuthor } from "./memo-codec.js";
 import { DUST_SATS, TXID_BYTES } from "./protocol.js";
 import { MalformedMemoError } from "./errors.js";
 import { networkConfig, type Network, type NetworkConfig } from "./network.js";
@@ -107,15 +107,40 @@ export class MemoReader {
 
   private async toLiveCoin(coin: UnspentCoin): Promise<LiveCoin | null> {
     const scripts = await this.source.outputScripts(coin.outpoint.txid);
-    const memoScript = firstMemoScript(scripts);
-    if (!memoScript) return null;
-    const ownerScript = scripts[coin.outpoint.outIdx];
+    const memo = this.memoForCoin(scripts, coin.outpoint.outIdx);
+    if (!memo) return null;
     return {
       outpoint: coin.outpoint,
       sats: coin.sats,
-      memo: memoScript.memo,
+      memo: memo.memo,
       blockHeight: coin.blockHeight,
       confirmed: coin.blockHeight !== MEMPOOL_BLOCK_HEIGHT,
+      authorVerified: memo.authorVerified,
+    };
+  }
+
+  /**
+   * The memo a dust coin carries. A batched transaction (AMP-240) holds an eMPP
+   * OP_RETURN at output 0 and one dust coin per section at outputs 1..N, so the
+   * coin at outIdx k maps to section k-1. A single-memo transaction uses the lone
+   * OP_RETURN. Batched sections are unsigned, so only single signed memos report
+   * authorVerified.
+   */
+  private memoForCoin(
+    scripts: readonly Script[],
+    outIdx: number,
+  ): { memo: Memo; authorVerified: boolean } | null {
+    const opReturn = scripts[0];
+    const batch = opReturn ? decodeMemoBatch(opReturn) : null;
+    if (batch) {
+      const memo = batch[outIdx - 1];
+      return memo ? { memo, authorVerified: false } : null;
+    }
+    const memoScript = firstMemoScript(scripts);
+    if (!memoScript) return null;
+    const ownerScript = scripts[outIdx];
+    return {
+      memo: memoScript.memo,
       authorVerified: ownerScript
         ? verifyMemoAuthor(memoScript.script, ownerScript.bytecode, this.ecc)
         : false,
