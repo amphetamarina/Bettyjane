@@ -12,7 +12,7 @@
 
 import "ecash-lib/dist/initNodeJs.js";
 import { unlinkSync } from "node:fs";
-import { MAX_MEMORY_BYTES, Minter, loadWallet, type Network } from "../src/index";
+import { MAX_MEMORY_BYTES, loadWallet, sequentialMinter, type Network } from "../src/index";
 import { distillWithClaude } from "./distiller";
 
 async function main(): Promise<void> {
@@ -36,7 +36,9 @@ async function main(): Promise<void> {
   if (notes.length === 0) return;
 
   const network = (process.env.BJ_NETWORK as Network) || "testnet";
-  const minter = Minter.fromNetwork(network);
+  // A change-threading minter so a turn's notes mint back to back without the
+  // mempool rejecting the second as a txn-mempool-conflict.
+  const minter = sequentialMinter(network);
   const signer = loadWallet().signer("agent");
   for (const note of notes) {
     const { txid } = await minter.remember(note, signer);
