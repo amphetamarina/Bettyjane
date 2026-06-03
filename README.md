@@ -51,7 +51,7 @@ API, the road ahead — is in **[docs/SPEC.md](docs/SPEC.md)**.
 
 ## Status
 
-The **v0.1.0** milestone is complete. The library derives keys and addresses,
+**1.0.0 — feature complete.** The library derives keys and addresses,
 observes funding, encodes/decodes the memo format, and mints and reads memory
 coins. The four verbs are implemented; notes too large for one coin are split
 across a [pointer chain](docs/coin-format.md) and reassembled on read. The
@@ -63,8 +63,9 @@ the repo installs as a Claude Code plugin with `/pin` and `/unpin` commands. The
 the live memory. There is no npm package yet — consume it as a library or plugin
 from this repo.
 
-**Beyond v0.1.0**, four capabilities have shipped on top of the coin format, each
-backward compatible with existing coins (see [coin-format.md](docs/coin-format.md)):
+Five capabilities layer on the coin format, each backward compatible with
+existing coins (see [coin-format.md](docs/coin-format.md); run them with
+[`examples/features.ts`](examples/features.ts)):
 
 - **Content-signed memories (v2).** A memo can carry a recoverable ECDSA signature
   over its content, so authorship is provable from the coin alone, not only in its
@@ -76,6 +77,9 @@ backward compatible with existing coins (see [coin-format.md](docs/coin-format.m
   one dust coin per section, so each note stays independently forgettable.
 - **Encrypted private memories.** A note can live on chain as ECIES ciphertext,
   readable only by the holder of the key — opt-in via `rememberPrivate`.
+- **2-of-2 consensus memories.** A shared-truth tier neither key can write or
+  forget alone: the coin lives at a 2-of-2 P2SH address, so every spend needs both
+  signatures.
 
 ## Requirements
 
