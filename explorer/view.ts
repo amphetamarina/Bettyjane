@@ -50,6 +50,7 @@ export function toMemoryView(coin: LiveCoin, network: Network, resolvedText?: st
 function contentView(coin: LiveCoin, resolvedText?: string): MemoryContentView {
   const content = coin.memo.content;
   if (content.type === "text") return { type: "text", text: content.text, viaPointer: false };
+  if (content.type === "encrypted") return { type: "text", text: "[encrypted]", viaPointer: false };
   if (resolvedText !== undefined) return { type: "text", text: resolvedText, viaPointer: true };
   return { type: "pointer", pointerHex: Buffer.from(content.pointer).toString("hex") };
 }
