@@ -205,26 +205,28 @@ coins do not change.
 
 ---
 
-## Running it inside Claude Code
+## Running it from any agent harness
 
-Claude Code already provides the loop, so you do not write a runner — you let its
-hooks fire three scripts, bundled as a plugin so the whole layer installs at once
-([`hooks/`](../hooks)).
+The runner — whatever advances a turn — drives Bettyjane through the **`bj` CLI**,
+so the same three moves work under Claude Code, Codex, opencode, a shell loop, or
+anything that can run a command. No harness-specific hooks:
 
-- **SessionStart → `load.ts`.** Reads the pins and the working set from the chain
-  via `loadMemory` and prints them; that text becomes Claude's context. The agent
-  wakes up already knowing.
-- **Stop / StopFailure → `capture.ts`.** Captures just that turn and writes a coin
-  only if something is worth keeping or went stale. `StopFailure` is wired too, so
-  dead ends are remembered. Writes are opt-in under `BJ_CAPTURE` and never block
-  the turn.
-- **SessionEnd → `consolidate.ts`.** Merges near-duplicate coins and drops the
+- **Before a turn → `bj load`.** Reads the pins and the working set from the chain
+  via `loadMemory` and prints them; that text becomes the agent's context. The
+  agent wakes up already knowing.
+- **After a turn → `bj capture`.** Distills the turn (piped on stdin, or rendered
+  from a `--transcript`) and writes a coin per note worth keeping. Distillation
+  runs through `BJ_DISTILL_CMD` (any model CLI) or the bundled `claude`.
+- **At session end → `bj consolidate`.** Merges near-duplicate coins and drops the
   stale via `planConsolidation`.
 
-The plugin also ships `/pin` and `/unpin` slash commands signed with the human
-key. Hook commands run with `bun` under `${CLAUDE_PLUGIN_ROOT}`; the wallet comes
-from `BJ_MNEMONIC` / `BJ_NETWORK`. See [hooks/README.md](../hooks/README.md),
-including the mainnet "real, public, and permanent" warning.
+`remember` / `forget` / `private` / `consensus` / `pin` / `unpin` are the explicit
+verbs; the wallet comes from `BJ_MNEMONIC` / `BJ_NETWORK`. On **Claude Code** the
+repo also installs as a plugin that exposes every verb as a skill (`/remember`,
+`/capture`, `/pin`, …), so the agent can be asked to remember or load directly.
+See [AGENTS.md](../AGENTS.md) for the runner loop and
+[docs/coin-format.md](coin-format.md) for the mainnet "real, public, and
+permanent" warning.
 
 ---
 

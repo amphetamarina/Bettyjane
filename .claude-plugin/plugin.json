@@ -1,7 +1,7 @@
 {
   "name": "bettyjane",
   "version": "1.0.0",
-  "description": "Persistent, public, tamper-evident memory for a human-plus-agent team, stored as dust coins on eCash (XEC). Loads memory on session start, captures distilled memories per turn, and consolidates on session end.",
+  "description": "Persistent, public, tamper-evident memory for a human-plus-agent team, stored as dust coins on eCash (XEC). Exposes a verb per capability through the bj CLI and as skills (load, capture, remember, forget, private, consensus, consolidate, pin, unpin), so it works across agent harnesses.",
   "author": { "name": "Marina Rosa" },
   "homepage": "https://github.com/amphetamarina/Bettyjane",
   "repository": "https://github.com/amphetamarina/Bettyjane",
