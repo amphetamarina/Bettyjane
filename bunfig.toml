@@ -1,0 +1,4 @@
+[test]
+# Initialize ecash-lib's wasm once before any test file, so concurrent lazy
+# inits don't race (see test/setup.ts).
+preload = ["./test/setup.ts"]
