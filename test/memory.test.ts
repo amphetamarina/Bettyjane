@@ -17,6 +17,7 @@ function coin(txid: string, value: string): LiveCoin {
     memo: memory(text(value)),
     blockHeight: 100,
     confirmed: true,
+    authorVerified: false,
   };
 }
 

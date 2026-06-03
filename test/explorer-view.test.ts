@@ -8,6 +8,7 @@ const textCoin = (overrides: Partial<LiveCoin> = {}): LiveCoin => ({
   memo: { kind: "memory", content: { type: "text", text: "remember the milk" } },
   blockHeight: 100,
   confirmed: true,
+  authorVerified: false,
   ...overrides,
 });
 

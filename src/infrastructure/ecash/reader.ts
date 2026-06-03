@@ -1,7 +1,7 @@
-import { Script, fromHex, toHex } from "ecash-lib";
+import { Ecc, Script, fromHex, toHex } from "ecash-lib";
 import { ChronikClient } from "chronik-client";
 import type { Memo } from "../../domain/memo.js";
-import { decodeMemo } from "./memo-codec.js";
+import { decodeMemo, verifyMemoAuthor } from "./memo-codec.js";
 import { DUST_SATS, TXID_BYTES } from "./protocol.js";
 import { MalformedMemoError } from "./errors.js";
 import { networkConfig, type Network, type NetworkConfig } from "./network.js";
@@ -40,10 +40,19 @@ export interface LiveCoin {
   readonly memo: Memo;
   readonly blockHeight: number;
   readonly confirmed: boolean;
+  /**
+   * Whether the memo carries a valid author signature for this coin (AMP-239).
+   * True for a signed v2 memo whose recovered signer matches the coin's address;
+   * false for an unsigned v1 memo or a signature that does not verify.
+   */
+  readonly authorVerified: boolean;
 }
 
 export class MemoReader {
-  constructor(private readonly source: MemoCoinSource) {}
+  constructor(
+    private readonly source: MemoCoinSource,
+    private readonly ecc: Ecc = new Ecc(),
+  ) {}
 
   /** Build a reader over a network's Chronik endpoints. */
   static fromNetwork(network?: Network | NetworkConfig): MemoReader {
@@ -97,14 +106,19 @@ export class MemoReader {
   }
 
   private async toLiveCoin(coin: UnspentCoin): Promise<LiveCoin | null> {
-    const memo = firstMemo(await this.source.outputScripts(coin.outpoint.txid));
-    if (!memo) return null;
+    const scripts = await this.source.outputScripts(coin.outpoint.txid);
+    const memoScript = firstMemoScript(scripts);
+    if (!memoScript) return null;
+    const ownerScript = scripts[coin.outpoint.outIdx];
     return {
       outpoint: coin.outpoint,
       sats: coin.sats,
-      memo,
+      memo: memoScript.memo,
       blockHeight: coin.blockHeight,
       confirmed: coin.blockHeight !== MEMPOOL_BLOCK_HEIGHT,
+      authorVerified: ownerScript
+        ? verifyMemoAuthor(memoScript.script, ownerScript.bytecode, this.ecc)
+        : false,
     };
   }
 }
@@ -121,10 +135,14 @@ function splitTxids(pointer: Uint8Array): string[] {
 }
 
 function firstMemo(scripts: readonly Script[]): Memo | null {
+  return firstMemoScript(scripts)?.memo ?? null;
+}
+
+function firstMemoScript(scripts: readonly Script[]): { memo: Memo; script: Script } | null {
   for (const script of scripts) {
     try {
       const memo = decodeMemo(script);
-      if (memo) return memo;
+      if (memo) return { memo, script };
     } catch {
       // A malformed BJNE script is not a usable memory; skip it.
     }

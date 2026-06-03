@@ -1,15 +1,38 @@
-import { OP_RETURN, Script, fromHex, isPushOp, pushBytesOp, strToBytes } from "ecash-lib";
+import {
+  type Ecc,
+  OP_RETURN,
+  Script,
+  fromHex,
+  isPushOp,
+  pushBytesOp,
+  sha256,
+  shaRmd160,
+  strToBytes,
+} from "ecash-lib";
 import type { Memo, MemoContent } from "../../domain/memo.js";
 import {
   LOKAD_ID,
   MAX_PAYLOAD_BYTES,
+  MAX_SIGNED_PAYLOAD_BYTES,
   PROTOCOL_VERSION,
+  SIGNATURE_BYTES,
+  SIGNED_PROTOCOL_VERSION,
+  SUPPORTED_VERSIONS,
   codeToContentType,
   codeToKind,
   contentTypeToCode,
   kindToCode,
 } from "./protocol.js";
 import { MalformedMemoError, MemoTooLargeError, UnsupportedVersionError } from "./errors.js";
+
+/** A decoded memo together with its on-chain author signature, if any (AMP-239). */
+export interface SignedMemo {
+  readonly memo: Memo;
+  /** The recoverable ECDSA signature carried by a v2 memo, or null for unsigned v1. */
+  readonly signature: Uint8Array | null;
+  /** The 32-byte digest the signature is over: sha256(LOKAD ++ header ++ payload). */
+  readonly digest: Uint8Array;
+}
 
 /**
  * Layout: OP_RETURN <LOKAD "BJNE"> <[version, kind, contentType]> <payload>.
@@ -21,26 +44,102 @@ export function encodeMemo(memo: Memo): Script {
   if (payload.length > MAX_PAYLOAD_BYTES) {
     throw new MemoTooLargeError(payload.length, MAX_PAYLOAD_BYTES);
   }
-  const header = Uint8Array.of(
-    PROTOCOL_VERSION,
-    kindToCode(memo.kind),
-    contentTypeToCode(memo.content.type),
-  );
   return Script.fromOps([
     OP_RETURN,
     pushBytesOp(LOKAD_ID),
-    pushBytesOp(header),
+    pushBytesOp(headerBytes(PROTOCOL_VERSION, memo)),
     pushBytesOp(payload),
   ]);
+}
+
+/**
+ * Encode a memo with an author signature over its content (AMP-239). The result
+ * is a v2 script: the v1 layout plus a trailing {@link SIGNATURE_BYTES}-byte
+ * push. The signature must be over {@link signingDigest}(memo). Inline payloads
+ * are capped at {@link MAX_SIGNED_PAYLOAD_BYTES} to leave room for the signature.
+ */
+export function encodeSignedMemo(memo: Memo, signature: Uint8Array): Script {
+  const payload = payloadOf(memo.content);
+  if (payload.length > MAX_SIGNED_PAYLOAD_BYTES) {
+    throw new MemoTooLargeError(payload.length, MAX_SIGNED_PAYLOAD_BYTES);
+  }
+  if (signature.length !== SIGNATURE_BYTES) {
+    throw new MalformedMemoError(`signature must be ${SIGNATURE_BYTES} bytes, got ${signature.length}`);
+  }
+  return Script.fromOps([
+    OP_RETURN,
+    pushBytesOp(LOKAD_ID),
+    pushBytesOp(headerBytes(SIGNED_PROTOCOL_VERSION, memo)),
+    pushBytesOp(payload),
+    pushBytesOp(signature),
+  ]);
+}
+
+/**
+ * The 32-byte digest an author signs to vouch for a memo's content:
+ * sha256(LOKAD ++ header ++ payload), where the header carries the v2 version.
+ */
+export function signingDigest(memo: Memo): Uint8Array {
+  return digestOf(headerBytes(SIGNED_PROTOCOL_VERSION, memo), payloadOf(memo.content));
 }
 
 /**
  * Decode a coin's output script. Returns null when the script is not a
  * Bettyjane memo (not OP_RETURN, or a foreign protocol prefix), so address
  * scans can skip foreign coins cheaply. Throws when the prefix is ours but the
- * rest is malformed or an unsupported version.
+ * rest is malformed or an unsupported version. A v2 (signed) memo decodes to the
+ * same content as v1; the signature is dropped — use {@link decodeSignedMemo} to
+ * recover it.
  */
 export function decodeMemo(script: Script): Memo | null {
+  return parse(script)?.memo ?? null;
+}
+
+/**
+ * Decode a memo along with its author signature and the digest that signature is
+ * over. Returns null for a non-memo script. For an unsigned v1 memo the
+ * signature is null. See {@link verifyMemoAuthor} to check the signature.
+ */
+export function decodeSignedMemo(script: Script): SignedMemo | null {
+  const parsed = parse(script);
+  if (!parsed) return null;
+  return {
+    memo: parsed.memo,
+    signature: parsed.signature,
+    digest: digestOf(parsed.header, parsed.payload),
+  };
+}
+
+/**
+ * Whether a memo script carries a valid author signature for the coin held at
+ * `ownerScript` (the memo coin's own P2PKH output script). Recovers the signing
+ * pubkey from the signature and checks its hash160 equals the owner's pubkey
+ * hash. Returns false for an unsigned memo, a non-P2PKH owner, or any signature
+ * that fails to recover or match.
+ */
+export function verifyMemoAuthor(script: Script, ownerScript: Uint8Array, ecc: Ecc): boolean {
+  const parsed = parse(script);
+  if (!parsed?.signature) return false;
+  const ownerPkh = pkhOfP2pkh(ownerScript);
+  if (!ownerPkh) return false;
+  try {
+    const digest = digestOf(parsed.header, parsed.payload);
+    const recovered = ecc.recoverSig(parsed.signature, digest);
+    const pubkey = recovered.length === SIGNATURE_BYTES ? ecc.compressPk(recovered) : recovered;
+    return equalBytes(shaRmd160(pubkey), ownerPkh);
+  } catch {
+    return false;
+  }
+}
+
+interface ParsedMemo {
+  readonly memo: Memo;
+  readonly signature: Uint8Array | null;
+  readonly header: Uint8Array;
+  readonly payload: Uint8Array;
+}
+
+function parse(script: Script): ParsedMemo | null {
   const ops = script.ops();
   if (ops.next() !== OP_RETURN) return null;
 
@@ -50,7 +149,7 @@ export function decodeMemo(script: Script): Memo | null {
   const header = nextData(ops);
   if (!header || header.length !== 3) throw new MalformedMemoError("missing 3-byte header");
   const version = header[0]!;
-  if (version !== PROTOCOL_VERSION) throw new UnsupportedVersionError(version);
+  if (!SUPPORTED_VERSIONS.includes(version)) throw new UnsupportedVersionError(version);
 
   const kind = codeToKind(header[1]!);
   const contentType = codeToContentType(header[2]!);
@@ -63,7 +162,16 @@ export function decodeMemo(script: Script): Memo | null {
       ? { type: "text", text: new TextDecoder().decode(payload) }
       : { type: "pointer", pointer: payload };
 
-  return { kind, content };
+  let signature: Uint8Array | null = null;
+  if (version === SIGNED_PROTOCOL_VERSION) {
+    const sig = nextData(ops);
+    if (!sig || sig.length !== SIGNATURE_BYTES) {
+      throw new MalformedMemoError(`v2 memo needs a ${SIGNATURE_BYTES}-byte signature`);
+    }
+    signature = sig;
+  }
+
+  return { memo: { kind, content }, signature, header, payload };
 }
 
 /** Decode a memo from an output script's raw hex, e.g. as Chronik returns it. */
@@ -79,8 +187,29 @@ export function isMemoScript(script: Script): boolean {
   }
 }
 
+function headerBytes(version: number, memo: Memo): Uint8Array {
+  return Uint8Array.of(version, kindToCode(memo.kind), contentTypeToCode(memo.content.type));
+}
+
 function payloadOf(content: MemoContent): Uint8Array {
   return content.type === "text" ? strToBytes(content.text) : content.pointer;
+}
+
+function digestOf(header: Uint8Array, payload: Uint8Array): Uint8Array {
+  const image = new Uint8Array(LOKAD_ID.length + header.length + payload.length);
+  image.set(LOKAD_ID, 0);
+  image.set(header, LOKAD_ID.length);
+  image.set(payload, LOKAD_ID.length + header.length);
+  return sha256(image);
+}
+
+/** The 20-byte pubkey hash of a standard P2PKH script, or null if it is not one. */
+function pkhOfP2pkh(script: Uint8Array): Uint8Array | null {
+  // OP_DUP OP_HASH160 <20-byte push> OP_EQUALVERIFY OP_CHECKSIG
+  const P2PKH = [0x76, 0xa9, 0x14];
+  if (script.length !== 25 || P2PKH.some((byte, i) => script[i] !== byte)) return null;
+  if (script[23] !== 0x88 || script[24] !== 0xac) return null;
+  return script.subarray(3, 23);
 }
 
 function nextData(ops: ReturnType<Script["ops"]>): Uint8Array | null {
