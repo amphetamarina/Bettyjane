@@ -18,6 +18,7 @@
 import { join } from "node:path";
 import type { Network } from "../src/index";
 import { fetchAddressMemories } from "./memories";
+import { fetchDiscover } from "./discover";
 
 interface Options {
   agent: string;
@@ -86,8 +87,21 @@ function start(options: Options) {
         const address = url.searchParams.get("address");
         if (!address) return Response.json({ error: "address is required" }, { status: 400 });
         const network = parseNetwork(url.searchParams.get("network"));
+        const includeSpent = ["1", "true", "yes"].includes((url.searchParams.get("all") ?? "").toLowerCase());
         try {
-          return Response.json(await fetchAddressMemories(address, network));
+          return Response.json(await fetchAddressMemories(address, network, undefined, includeSpent));
+        } catch (error) {
+          return Response.json(
+            { error: error instanceof Error ? error.message : String(error) },
+            { status: 502 },
+          );
+        }
+      }
+
+      if (url.pathname === "/api/discover") {
+        const network = parseNetwork(url.searchParams.get("network"));
+        try {
+          return Response.json(await fetchDiscover(network));
         } catch (error) {
           return Response.json(
             { error: error instanceof Error ? error.message : String(error) },
