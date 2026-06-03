@@ -1,5 +1,5 @@
 import { beforeAll, describe, expect, test } from "bun:test";
-import { Address, Tx } from "ecash-lib";
+import { Address, Ecc, Tx } from "ecash-lib";
 import {
   type Broadcaster,
   type CoinSource,
@@ -19,6 +19,7 @@ import {
   memory,
   pin,
   text,
+  verifyMemoAuthor,
 } from "../src/index";
 
 const PHRASE =
@@ -65,6 +66,14 @@ describe("Minter.mint", () => {
     const tx = Tx.deser(result.rawTx);
     expect(tx.txid()).toBe(result.txid);
     expect(decodeMemo(tx.outputs[OP_RETURN_VOUT]!.script)).toEqual(memo);
+  });
+
+  test("signs the memo so its author is verifiable from the coin alone (AMP-239)", async () => {
+    const { minter, broadcasts } = harness([coin(10_000n)]);
+    await minter.mint(memory(text("a note worth signing")), SIGNER);
+
+    const memoScript = Tx.deser(broadcasts[0]!).outputs[OP_RETURN_VOUT]!.script;
+    expect(verifyMemoAuthor(memoScript, OWNER_SCRIPT, new Ecc())).toBe(true);
   });
 
   test("lays down a dust memo coin at the signer's own address", async () => {

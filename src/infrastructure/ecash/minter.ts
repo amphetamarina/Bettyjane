@@ -13,8 +13,14 @@ import { memory, pin, pointer, text, type Memo, type MemoContent, type MemoKind 
 import { parseCoinId } from "../../domain/coin-id";
 import { chunkText } from "../../domain/chunking";
 import type { Signer } from "./wallet";
-import { encodeMemo } from "./memo-codec";
-import { DUST_SATS, MAX_PAYLOAD_BYTES, MAX_POINTER_CHUNKS, TXID_BYTES } from "./protocol";
+import { encodeMemo, encodeSignedMemo, signingDigest } from "./memo-codec";
+import {
+  DUST_SATS,
+  MAX_PAYLOAD_BYTES,
+  MAX_POINTER_CHUNKS,
+  MAX_SIGNED_PAYLOAD_BYTES,
+  TXID_BYTES,
+} from "./protocol";
 import { MemoTooLargeError } from "./errors";
 import { networkConfig, type Network, type NetworkConfig } from "./network";
 
@@ -127,7 +133,7 @@ export class Minter {
     const tx = new TxBuilder({
       inputs: this.signedInputs(funding, signer, ownerScript),
       outputs: [
-        { sats: 0n, script: encodeMemo(memo) }, // OP_RETURN_VOUT: the memo text
+        { sats: 0n, script: this.authoredMemo(memo, signer) }, // OP_RETURN_VOUT: the memo text
         { sats: DUST_SATS, script: ownerScript }, // MEMO_COIN_VOUT: the memory
         ownerScript, // leftover change, dropped into the fee if below dust
       ],
@@ -265,6 +271,23 @@ export class Minter {
     const rawTx = tx.ser();
     const { txid } = await this.broadcaster.broadcast(rawTx);
     return { txid, rawTx, outpoint };
+  }
+
+  /**
+   * Encode a memo for its OP_RETURN, signing the content when it fits (AMP-239).
+   * An inline text note within {@link MAX_SIGNED_PAYLOAD_BYTES} is minted as a
+   * signed v2 memo so its authorship is provable from the coin alone; pointer
+   * heads and longer notes fall back to the unsigned v1 encoding.
+   */
+  private authoredMemo(memo: Memo, signer: Signer): Script {
+    if (
+      memo.content.type === "text" &&
+      Buffer.byteLength(memo.content.text, "utf8") <= MAX_SIGNED_PAYLOAD_BYTES
+    ) {
+      const signature = this.ecc.signRecoverable(signer.seckey, signingDigest(memo));
+      return encodeSignedMemo(memo, signature);
+    }
+    return encodeMemo(memo);
   }
 
   private signedInputs(coins: readonly SpendableCoin[], signer: Signer, ownerScript: Script) {
