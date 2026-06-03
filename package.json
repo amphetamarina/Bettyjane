@@ -1,6 +1,6 @@
 {
   "name": "bettyjane",
-  "version": "0.2.0",
+  "version": "1.0.0",
   "description": "Persistent, public, tamper-evident memory for a human-plus-agent team, stored as dust coins on eCash (XEC).",
   "type": "module",
   "module": "src/index.ts",
