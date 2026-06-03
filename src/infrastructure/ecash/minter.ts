@@ -13,7 +13,7 @@ import { memory, pin, pointer, text, type Memo, type MemoContent, type MemoKind 
 import { parseCoinId } from "../../domain/coin-id";
 import { chunkText } from "../../domain/chunking";
 import type { Signer } from "./wallet";
-import { encodeMemo, encodeSignedMemo, signingDigest } from "./memo-codec";
+import { batchMemos, encodeMemo, encodeMemoBatch, encodeSignedMemo, signingDigest } from "./memo-codec";
 import {
   DUST_SATS,
   MAX_PAYLOAD_BYTES,
@@ -70,6 +70,13 @@ export interface MintResult {
   readonly txid: string;
   readonly rawTx: Uint8Array;
   readonly memo: Memo;
+}
+
+/** The outcome of a batched mint: one transaction carrying several memo coins. */
+export interface MintBatchResult {
+  readonly txid: string;
+  readonly rawTx: Uint8Array;
+  readonly memos: readonly Memo[];
 }
 
 /** The outcome of a forget: the spend transaction and the coin it removed. */
@@ -241,6 +248,48 @@ export class Minter {
     const results: MintResult[] = [];
     for (const memo of memos) {
       results.push(await this.mint(memo, signer));
+    }
+    return results;
+  }
+
+  /**
+   * Mint several memos in one transaction via an eMPP batch (AMP-240): a single
+   * OP_RETURN carries every memo as a section, and one dust coin is laid down per
+   * section so each note stays an independently forgettable coin. The dust coins
+   * sit at vouts 1..N, matching the section order. Throws if the memos do not fit
+   * one OP_RETURN — pack with {@link Minter.rememberBatch} to avoid that.
+   */
+  async mintBatch(memos: readonly Memo[], signer: Signer): Promise<MintBatchResult> {
+    const ownerScript = Address.fromCashAddress(signer.address).toScript();
+    const funding = await this.fundingCoins(signer.address);
+    const dustCoins = memos.map(() => ({ sats: DUST_SATS, script: ownerScript }));
+
+    const tx = new TxBuilder({
+      inputs: this.signedInputs(funding, signer, ownerScript),
+      outputs: [
+        { sats: 0n, script: encodeMemoBatch(memos) }, // OP_RETURN_VOUT: every memo
+        ...dustCoins, // one dust memo coin per section, in order
+        ownerScript, // change
+      ],
+    }).sign({ ecc: this.ecc, feePerKb: this.feePerKb, dustSats: DUST_SATS });
+
+    const rawTx = tx.ser();
+    const { txid } = await this.broadcaster.broadcast(rawTx);
+    return { txid, rawTx, memos };
+  }
+
+  /**
+   * Remember several notes with as few transactions as possible (AMP-240): pack
+   * the notes into eMPP batches that each fit one OP_RETURN and mint one
+   * transaction per batch, returning a result per transaction. Each note must fit
+   * a single section ({@link MAX_PAYLOAD_BYTES}); a longer note throws — store it
+   * with {@link Minter.remember}, which splits it across a pointer chain.
+   */
+  async rememberBatch(values: readonly string[], signer: Signer): Promise<MintBatchResult[]> {
+    const memos = values.map((value) => withKind("memory", text(value)));
+    const results: MintBatchResult[] = [];
+    for (const batch of batchMemos(memos)) {
+      results.push(await this.mintBatch(batch, signer));
     }
     return results;
   }
