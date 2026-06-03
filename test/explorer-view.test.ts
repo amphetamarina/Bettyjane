@@ -36,9 +36,22 @@ describe("toMemoryView", () => {
       kind: "memory",
       author: "agent",
       confirmed: true,
+      authorVerified: false,
       content: { type: "text", text: "remember the milk", viaPointer: false },
       explorerUrl: `https://explorer.e.cash/tx/${"a".repeat(64)}`,
     });
+  });
+
+  test("carries the authorVerified flag from a signed coin (AMP-239)", () => {
+    expect(toMemoryView(textCoin({ authorVerified: true }), "mainnet").authorVerified).toBe(true);
+    expect(toMemoryView(textCoin({ authorVerified: false }), "mainnet").authorVerified).toBe(false);
+  });
+
+  test("renders an encrypted memory as an encrypted view, not its bytes (AMP-242)", () => {
+    const coin = textCoin({
+      memo: { kind: "memory", content: { type: "encrypted", ciphertext: new Uint8Array([1, 2, 3]) } },
+    });
+    expect(toMemoryView(coin, "mainnet").content).toEqual({ type: "encrypted" });
   });
 
   test("attributes a pin to the human author", () => {
