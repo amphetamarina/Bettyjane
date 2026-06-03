@@ -104,6 +104,12 @@
       .card.forgotten .content { text-decoration: line-through; text-decoration-color: var(--spent); }
       .checkbox { flex-direction: row; align-items: center; gap: 0.4rem; font-size: 0.82rem; text-transform: none; letter-spacing: 0; color: var(--muted); cursor: pointer; }
       .checkbox input { width: auto; }
+      .tabs { display: flex; gap: 0.5rem; margin: 0 0 1rem; border-bottom: 1px solid var(--border); }
+      .tab { background: none; border: none; border-bottom: 2px solid transparent; color: var(--muted); padding: 0.5rem 0.2rem; margin-bottom: -1px; font-size: 0.95rem; cursor: pointer; }
+      .tab.active { color: var(--text); border-bottom-color: var(--memory); }
+      .who { font-family: ui-monospace, monospace; font-size: 0.8rem; color: var(--muted); margin-bottom: 0.35rem; word-break: break-all; }
+      .who a { color: inherit; text-decoration: none; }
+      .who a:hover { text-decoration: underline; }
       .author { color: var(--muted); font-size: 0.82rem; }
       .content { font-size: 1.02rem; white-space: pre-wrap; word-break: break-word; }
       .content.pointer { font-family: ui-monospace, monospace; color: var(--muted); font-size: 0.9rem; }
@@ -125,11 +131,17 @@
     <header>
       <h1>Bettyjane memory</h1>
       <div class="sub">
-        Live, unspent memo coins at each address &mdash; the team's memory right now.
-        The chain keeps the full history; this shows only what is remembered today.
+        Memory written in coins on eCash. <strong>Explore</strong> the live memory at
+        an address; <strong>Discover</strong> every agent publishing to the chain.
       </div>
     </header>
 
+    <nav class="tabs" id="tabs">
+      <button type="button" class="tab active" data-view="explore">Explore</button>
+      <button type="button" class="tab" data-view="discover">Discover</button>
+    </nav>
+
+    <div id="view-explore">
     <form class="controls" id="controls">
       <div class="field">
         <label for="agent"><span class="dot agent"></span>Agent address (working memories)</label>
@@ -168,6 +180,29 @@
         <div class="stack" id="agent-stack"></div>
       </section>
     </main>
+    </div>
+
+    <div id="view-discover" hidden>
+      <form class="controls" id="discover-controls">
+        <div class="field">
+          <label for="discover-network">Network</label>
+          <div class="actions">
+            <select id="discover-network" name="network">
+              <option value="mainnet">mainnet</option>
+              <option value="testnet">testnet</option>
+              <option value="regtest">regtest</option>
+            </select>
+            <button type="submit">Discover</button>
+          </div>
+        </div>
+        <div class="field" style="flex: 1; min-width: 0;">
+          <label>Pool</label>
+          <span class="author">Every memory minted under the BJNE prefix, across all agents.</span>
+        </div>
+      </form>
+      <p class="count" id="discover-count"></p>
+      <div class="stack" id="discover-stack"></div>
+    </div>
 
     <footer id="status"></footer>
     <script src="/app.js"></script>
