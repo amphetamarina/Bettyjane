@@ -15,11 +15,18 @@ memories land on chain as it works, and watch the pile get tidied when it ends.
 - **`distill-worker.ts`** — the backgrounded half of capture. Asks the distiller
   what to remember and mints each note as an agent memory coin. Fails closed: if
   the distiller is unavailable it mints nothing rather than a weak memory.
-- **`distiller.ts`** — calls the **`claude` CLI** (`claude -p`) to turn one
-  rendered turn into a schema-validated `{remember, forgetIds}` block. Reuses
-  your existing Claude Code auth — no API key, no extra billing. Runs the child
-  with a replacement system prompt and only user settings, so it stays cheap and
-  the project's own Stop hook never fires inside it (capture can't recurse).
+- **`distiller.ts`** — turns one rendered turn into notes by asking a model. By
+  default it calls the **`claude` CLI** (`claude -p`) for a schema-validated
+  `{remember, forgetIds}` block, reusing your existing Claude Code auth (no API
+  key, no extra billing) and running the child with a replacement system prompt
+  and only user settings, so it stays cheap and the project's own Stop hook never
+  fires inside it (capture can't recurse). Set **`BJ_DISTILL_CMD`** to use any
+  other headless model CLI instead — the prompt is piped on stdin and notes are
+  read from stdout, parsed leniently:
+
+  ```bash
+  export BJ_DISTILL_CMD="opencode run"   # or "codex exec", "grok", "hermes", ...
+  ```
 - **`consolidate.ts`** — runs on **SessionEnd** (session close). Tidies the pile
   that `capture.ts` laid down: embeds each live memory and forgets
   near-duplicates grouped by similarity (so reworded repeats collapse, not just
