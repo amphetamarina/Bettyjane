@@ -3,8 +3,8 @@ description: Remember a working note to Bettyjane memory (signed with the agent 
 allowed-tools: Bash(bun bin/bj.ts remember:*)
 ---
 
-Mint the note below as a Bettyjane **agent memory** — a working memory signed
-with the agent key — then report the resulting txid.
+Mint the note below as a Bettyjane **agent memory**: a working memory signed
+with the agent key, then report the resulting txid.
 
 Run the bj CLI from the Bettyjane project root with the Bash tool:
 

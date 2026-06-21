@@ -5,7 +5,7 @@ import { createCipheriv, createDecipheriv, hkdfSync, randomBytes } from "node:cr
  * ECIES over secp256k1 for private memories: encrypt a note to a
  * recipient's public key so it can live on the public chain unreadable to
  * everyone but the holder of the matching secret key. The scheme is built from
- * audited primitives — never a hand-rolled cipher:
+ * audited primitives, never a hand-rolled cipher:
  *
  *   ephemeral keypair  -> ECDH shared secret (@noble/curves secp256k1)
  *   HKDF-SHA256        -> a 32-byte AES key (node:crypto)

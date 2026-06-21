@@ -20,7 +20,7 @@ beforeAll(() => {
 });
 
 /**
- * A base source that always returns the SAME single funding coin — the worst
+ * A base source that always returns the SAME single funding coin, the worst
  * case the real Chronik creates when a just-spent coin has not propagated yet.
  * A naive minter would re-pick it every time and double-spend.
  */

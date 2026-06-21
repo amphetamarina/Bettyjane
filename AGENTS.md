@@ -25,14 +25,14 @@ CI runs the same two on every PR and push to `main`.
 
 Domain-driven layering, enforced by import direction:
 
-- `src/domain/` — the pure memory model: `Memo`/`MemoContent`, `Author`, and
+- `src/domain/`: the pure memory model: `Memo`/`MemoContent`, `Author`, and
   funding assessment. No eCash, no I/O, no `ecash-lib` imports. Chain-agnostic
   and trivially unit-testable.
-- `src/infrastructure/ecash/` — the adapters that bind the model to eCash:
+- `src/infrastructure/ecash/`: the adapters that bind the model to eCash:
   `wallet` (key/address derivation), `memo-codec` + `protocol` (the OP_RETURN
-  format), `chronik` (reads), `minter` (writes — build/sign/broadcast),
+  format), `chronik` (reads), `minter` (writes, build/sign/broadcast),
   `network` (prefixes and endpoints).
-- `src/index.ts` — the public surface. Every export the package offers is
+- `src/index.ts`: the public surface. Every export the package offers is
   re-exported here; add new public types/functions to it.
 
 Infrastructure may depend on the domain; the domain must never depend on
@@ -48,7 +48,7 @@ plain constructor for tests.
 - **TypeScript on Bun**, ES modules, strict. Prefer `readonly` fields and small
   immutable value objects.
 - **Let types and names carry meaning.** Comment only genuinely non-obvious
-  decisions (a protocol quirk, a wire-format reason) — not what the code already
+  decisions (a protocol quirk, a wire-format reason), not what the code already
   says. Match the density of the surrounding file.
 - **Errors are named classes** that extend `Error` and set `this.name`
   (`MemoTooLargeError`, `FundingTimeoutError`, `InsufficientFundsError`), thrown
@@ -57,9 +57,9 @@ plain constructor for tests.
   behavior. Derive keys inside `test`/`beforeAll` bodies, never at module top
   level (see gotchas).
 - **Keep the e2e suite current.** `test/e2e` proves the agent verbs on a real
-  chain (regtest in CI, no faucet — see [docs/testnet-and-e2e.md](docs/testnet-and-e2e.md)).
-  Whenever a change adds or alters an on-chain capability — a new verb, a change
-  to what a coin carries, or how coins are read or spent — extend the e2e flow to
+  chain (regtest in CI, no faucet, see [docs/testnet-and-e2e.md](docs/testnet-and-e2e.md)).
+  Whenever a change adds or alters an on-chain capability, a new verb, a change
+  to what a coin carries, or how coins are read or spent, extend the e2e flow to
   exercise it, and never weaken an existing assertion to make a change pass. It is
   skipped from the default `bun test` and runs on every PR via the
   `E2E (regtest)` workflow, so a regression there blocks the merge.
@@ -69,7 +69,7 @@ plain constructor for tests.
 
 ## Using Bettyjane as memory from any agent harness
 
-Bettyjane's portable interface is the **`bj` CLI** — every capability is a verb,
+Bettyjane's portable interface is the **`bj` CLI**: every capability is a verb,
 so any agent runtime (Claude Code, Codex, opencode, Grok, Hermes, or a plain
 shell loop) gets persistent on-chain memory by shelling out to it. No harness-
 specific hooks are required.
@@ -89,15 +89,15 @@ installed as a plugin):
 
 | Verb | Purpose |
 | --- | --- |
-| `load` | print the team's current memory (pins + working set) — read at turn start |
+| `load` | print the team's current memory (pins + working set), read at turn start |
 | `capture` | distill a turn (on stdin, or `--transcript`) and mint what's worth keeping |
-| `consolidate` | forget near-duplicate memories — run at session end |
+| `consolidate` | forget near-duplicate memories, run at session end |
 | `remember <note>` / `forget <id>` | the agent's explicit verbs |
 | `private <note>` | remember an encrypted (private) note |
 | `consensus <note>` | mint a 2-of-2 memo both keys must sign |
 | `pin <note>` / `unpin <id>` | the human's durable verbs |
 
-A minimal **runner** is three calls around a turn — the same loop a Claude Code
+A minimal **runner** is three calls around a turn, the same loop a Claude Code
 hook used to automate:
 
 ```bash
@@ -129,5 +129,5 @@ can be asked to remember, capture, load, and so on directly.
   touching coin selection or output layout (OP_RETURN, then the dust memo coin,
   then change).
 - The flake above (`Out of bounds memory access` via `mnemonicToSeed`) can still
-  surface rarely under a full `bun test` run. It is upstream, not our code — if a
+  surface rarely under a full `bun test` run. It is upstream, not our code, if a
   run fails only there, re-run.

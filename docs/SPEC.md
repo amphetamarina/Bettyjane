@@ -1,7 +1,7 @@
-# Bettyjane — specification
+# Bettyjane, specification
 
 An experiment in persistent, public memory for a human-plus-agent team, stored on
-eCash (XEC) — a chain I know well. Every memory is a coin. This document describes
+eCash (XEC), a chain I know well. Every memory is a coin. This document describes
 the system as built: the coin format, the two-key model, how memory is captured and
 tidied, how a small working set is chosen each turn, the integration API, and the
 tools around it (CLI, plugin, explorer). It is written to be understood and run.
@@ -17,7 +17,7 @@ So we give the team a notebook, except the notebook is made of coins. Each memor
 is a tiny coin sitting on the eCash chain. The agent's mind, right now, is the
 handful of coins it currently holds. To forget something, it spends that coin and
 the coin leaves the table. The spending is recorded forever, so nothing is truly
-destroyed — it is just no longer in hand.
+destroyed; it is just no longer in hand.
 
 The agent is not a program running on the blockchain. The agent is the set of
 coins it holds and the trail of how that set changed. Its identity and memory
@@ -29,15 +29,15 @@ are the chain. Its thinking happens elsewhere.
 
 Think of an old game console.
 
-1. **The notebook — coins on the eCash chain.** The save file: the team's current
+1. **The notebook: coins on the eCash chain.** The save file: the team's current
    memories and the full history of every change. The chain keeps it safe and
    ordered. This repository is that layer.
 
-2. **The brain — an LLM.** The console that plays. Claude Code, the Claude API,
+2. **The brain: an LLM.** The console that plays. Claude Code, the Claude API,
    any agent framework. It has no memory of its own. You hand it the current
    coins as text, it thinks, it tells you what to remember and what to forget.
 
-3. **The runner — whatever advances a turn.** Your own loop, or, with Claude
+3. **The runner: whatever advances a turn.** Your own loop, or, with Claude
    Code, hook scripts that fire on their own. Without it the coins just sit there
    between turns.
 
@@ -48,8 +48,8 @@ the notebook and the four verbs to write in it.
 
 ## What is in the notebook
 
-**Each memory is a coin.** A memory is a dust coin — exactly `DUST_SATS` (546
-sats) — sitting at an address, with its text attached in the transaction's
+**Each memory is a coin.** A memory is a dust coin, exactly `DUST_SATS` (546
+sats), sitting at an address, with its text attached in the transaction's
 `OP_RETURN` when it was minted. The unspent coins at an address are its current
 memory. You read them in one call: list the live coins at that address
 (`MemoReader.listLiveCoins`).
@@ -65,7 +65,7 @@ know" is the full chain.
 
 **The live set is the pool; the working set is smaller.** The live coins are
 already curated, because the junk was spent. But you do not pour all of them into
-a prompt — long context makes the brain worse and costs more. Each turn the brain
+a prompt, long context makes the brain worse and costs more. Each turn the brain
 sees a small working set: the human's pins, plus the few live coins most relevant
 right now, picked by an off-chain search index. The size is a knob
 (`DEFAULT_MAX_WORKING`, 24), set by what the model uses well, not by any chain
@@ -128,7 +128,7 @@ human pins rare, durable things: corrections, standing instructions, facts the
 agent keeps getting wrong.
 
 **The signature is the permission.** Because pins live at the human's address,
-the agent's key cannot spend them — `forget`/`unpin` only ever consider coins at
+the agent's key cannot spend them; `forget`/`unpin` only ever consider coins at
 the signer's own address, so the agent can read a pin and obey it but cannot
 erase it. There is no separate access-control system to build.
 
@@ -166,7 +166,7 @@ turn.
 Memory changes through two moments: capture (per turn) and consolidation (at
 session end).
 
-- **Capture** looks at the latest turn only and writes a small delta — usually
+- **Capture** looks at the latest turn only and writes a small delta, usually
   nothing. Most turns produce no durable fact, so most turns mint no coin.
   Capturing per turn means a crash loses at most one turn, which is what makes a
   disposable runner safe.
@@ -175,7 +175,7 @@ session end).
   stays lean without summarizing away anything still distinct.
 
 A note on cadence: on XEC a write is sub-cent and final in seconds, so cost is
-not the reason to wait. The reason is noise — a memory written after every reply
+not the reason to wait. The reason is noise, a memory written after every reply
 captures half-finished thoughts and duplicates, and a live set full of that makes
 retrieval worse. So capture writes a distilled delta per turn while consolidation
 merges at the end. **Capture, then tidy.**
@@ -207,7 +207,7 @@ coins do not change.
 
 ## Running it from any agent harness
 
-The runner — whatever advances a turn — drives Bettyjane through the **`bj` CLI**,
+The runner, whatever advances a turn, drives Bettyjane through the **`bj` CLI**,
 so the same three moves work under Claude Code, Codex, opencode, a shell loop, or
 anything that can run a command. No harness-specific hooks:
 
@@ -246,7 +246,7 @@ permanent" warning.
 ## How the agent is born
 
 You create two things: the agent, and its first pins. Fund the addresses with a
-little XEC — enough to mint many coins and pay the tiny fees — then mint a couple
+little XEC, enough to mint many coins and pay the tiny fees, then mint a couple
 of pins from the human key: the agent's name, its goal, a standing instruction or
 two. The moment those transactions finalize, a few seconds later, the agent
 exists, holding its first coins, waiting for its first session.
@@ -272,7 +272,7 @@ Lighting the pilot light. `bj init` is the glue that does it.
 ## What living on a chain buys
 
 - **The runner is disposable; the agent is not.** Kill the runner, lose the
-  laptop — the team's whole memory is on the chain. Point a fresh runner at the
+  laptop, the team's whole memory is on the chain. Point a fresh runner at the
   same addresses and it wakes up exactly where it left off.
 - **Its mind is a public query.** Anyone can list the agent's live coins to see
   what it remembers now, and read the chain to see how it got there.

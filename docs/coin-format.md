@@ -9,7 +9,7 @@ reference implementation.
 
 | Field | Value |
 | --- | --- |
-| Value | `546` satoshis (eCash dust, `5.46 XEC`) — constant `MEMO_COIN_SATS` |
+| Value | `546` satoshis (eCash dust, `5.46 XEC`), constant `MEMO_COIN_SATS` |
 | Location | the agent's memory address (`MEMORY`) or the human's pin address (`PIN`) |
 | Live = remembered | an unspent coin is a current memory; spending it is forgetting |
 
@@ -28,7 +28,7 @@ Each `<...>` is a pushdata op. The whole script must stay within eCash's
 | Push | Size | Contents |
 | --- | --- | --- |
 | `LOKAD_ID` | 4 bytes | ASCII `BJNE`. Protocol prefix (eCash app-identifier convention) so indexers can filter Bettyjane coins and we never collide with another app. |
-| `HEADER` | 3 bytes | `[VERSION, KIND, CONTENT_TYPE]` — see below. |
+| `HEADER` | 3 bytes | `[VERSION, KIND, CONTENT_TYPE]`: see below. |
 | `PAYLOAD` | ≤ 211 bytes | The note (UTF-8) for `TEXT`, or raw pointer bytes for `POINTER`. |
 
 ### `HEADER` bytes
@@ -42,7 +42,7 @@ Each `<...>` is a pushdata op. The whole script must stay within eCash's
 `KIND` records who authored the coin and its role in the two-author model: the
 agent's churning working memories vs. the human's durable pins. The permission to
 write or spend is enforced by the signature (the controlling key), not by this
-byte — `KIND` is a self-description for readers, not an access check.
+byte, `KIND` is a self-description for readers, not an access check.
 
 The three header fields share **one** push on purpose: a single-byte push of a
 small integer collapses to a bare `OP_N` opcode under minimal-push encoding, which
@@ -50,11 +50,11 @@ is ambiguous to parse. A 3-byte push never collapses.
 
 ### `PAYLOAD`
 
-- `TEXT`: the note as UTF-8. Capped at **`MAX_PAYLOAD_BYTES = 211`** bytes — a
+- `TEXT`: the note as UTF-8. Capped at **`MAX_PAYLOAD_BYTES = 211`** bytes, a
   *byte* budget, not a character count (multibyte characters cost more). Derived as
   `223 − OP_RETURN(1) − LOKAD push(5) − HEADER push(4) − payload push prefix(2)`.
 - `POINTER`: a reference to content stored off-coin, for notes larger than the
-  inline limit. The payload is a run of **32-byte transaction ids**, in order —
+  inline limit. The payload is a run of **32-byte transaction ids**, in order,
   the chunk transactions the note was split across. Each chunk is a data-only
   transaction (an `OP_RETURN` carrying a `MEMORY`/`TEXT` slice, with change but
   **no dust coin**, so it never joins the live set), and the full note is the
@@ -65,8 +65,8 @@ is ambiguous to parse. A 3-byte push never collapses.
 ### Author signatures (v2)
 
 A coin's *ownership* already proves who can spend it, but that proof only holds in
-the spend transaction. A memo read out of context — copied from a block explorer,
-say — carried no proof of its author. A **v2** memo closes that gap by appending
+the spend transaction. A memo read out of context, copied from a block explorer,
+say, carried no proof of its author. A **v2** memo closes that gap by appending
 one more push to the v1 layout:
 
 ```
@@ -81,36 +81,36 @@ Verification needs nothing else on chain: the verifier recovers the signing
 pubkey from the signature (`Ecc.recoverSig`), hashes it (`shaRmd160`), and checks
 that hash equals the pubkey hash of the address holding the coin. The signature
 is over the v2 header, so altering the version, kind, content type, or payload
-invalidates it. As with `KIND`, this is not a new permission — the controlling
-key is still the only authority — it is *portable proof of authorship*.
+invalidates it. As with `KIND`, this is not a new permission, the controlling
+key is still the only authority, it is *portable proof of authorship*.
 
 Because the 65-byte signature consumes part of the `OP_RETURN` budget, an inline
 signed payload is capped at `MAX_SIGNED_PAYLOAD_BYTES` (the unsigned limit minus
 the signature push). The minter signs inline `TEXT` notes that fit; longer notes
 and `POINTER` heads fall back to the unsigned v1 encoding. v1 coins remain valid
-and decode unchanged — `decodeMemo` accepts both versions and drops the signature;
+and decode unchanged, `decodeMemo` accepts both versions and drops the signature;
 `decodeSignedMemo` / `verifyMemoAuthor` expose and check it.
 
 ### Consensus memories (2-of-2)
 
 Above the unilateral agent memories and human pins sits a shared-truth tier: a
 **consensus memory** that neither key can write or forget alone. Its coin lives
-at a **2-of-2 P2SH** address derived from both public keys, so every spend —
-minting or forgetting — needs both signatures. The memo carries
+at a **2-of-2 P2SH** address derived from both public keys, so every spend,
+minting or forgetting, needs both signatures. The memo carries
 `KIND = CONSENSUS`; as always the byte only labels it, the 2-of-2 script is the
 actual enforcement.
 
 - `consensusRedeemScript([pubA, pubB])` builds the `OP_2 <pubA> <pubB> OP_2
   OP_CHECKMULTISIG` redeem script (pubkeys in canonical order, so the address is
   independent of argument order); `consensusAddress(...)` is its **P2SH20**
-  cashaddr (eCash has P2SH20 only — fine for a 2-of-2 between two known keys).
+  cashaddr (eCash has P2SH20 only, fine for a 2-of-2 between two known keys).
 - `ConsensusMinter.mint`/`forget` spend the P2SH coin with `consensusSignatory`,
   which signs the input with both keys (in pubkey order, as `OP_CHECKMULTISIG`
   requires) and assembles the `OP_0 <sigA> <sigB> <redeemScript>` scriptSig.
 
 Because Bettyjane derives both keys from one mnemonic, the two signatures are
-made together rather than handed between machines. A cross-machine PSBT handoff —
-where the human and agent run on different hosts — is a later refinement; the
+made together rather than handed between machines. A cross-machine PSBT handoff,
+where the human and agent run on different hosts, is a later refinement; the
 on-chain coin is identical either way.
 
 ### Encrypted private memories
@@ -124,7 +124,7 @@ carries, as its payload, an **ECIES** blob:
 ephemeralPubkey(33) ‖ iv(12) ‖ ciphertext(n) ‖ tag(16)
 ```
 
-built from audited primitives — never a hand-rolled cipher:
+built from audited primitives, never a hand-rolled cipher:
 
 - **ECDH** over secp256k1 (`@noble/curves`) between a fresh ephemeral key and the
   recipient's public key yields a shared secret;
@@ -135,12 +135,12 @@ The fresh ephemeral key makes each encryption unique; GCM's tag makes a wrong ke
 or any tampering fail loudly rather than return garbage. `Minter.rememberPrivate`
 encrypts a note to a recipient pubkey (encrypt to your own pubkey to remember to
 yourself) and mints the ciphertext; decryption is a separate keyed step
-(`decryptWithSeckey`) done locally — the reader and explorer show `[encrypted]`
+(`decryptWithSeckey`) done locally, the reader and explorer show `[encrypted]`
 without the key. Encrypted memos are unsigned and inline-only: a blob over
 `MAX_PAYLOAD_BYTES` is rejected (splitting encrypted notes across a pointer chain
 is a follow-up).
 
-This is **opt-in** — `rememberPrivate` is an explicit call, not wired into the
+This is **opt-in**: `rememberPrivate` is an explicit call, not wired into the
 automatic capture path, so nothing is encrypted to the chain without intent.
 
 ### Batching a turn's notes with eMPP
@@ -157,7 +157,7 @@ Each `<section_i>` is one push whose bytes are a whole Bettyjane memo packed
 together: `LOKAD_ID ‖ [VERSION, KIND, CONTENT_TYPE] ‖ PAYLOAD`. The transaction
 lays **one dust coin per section**, at outputs `1..n` in section order (the
 `OP_RETURN` is output `0`), so every note remains an independently forgettable
-coin — `forget(id)` spends a single section's dust coin and leaves the rest live.
+coin, `forget(id)` spends a single section's dust coin and leaves the rest live.
 The reader maps the dust coin at output `k` back to section `k-1`.
 
 `encodeMemoBatch` builds the script (capped at the 223-byte `OP_RETURN` limit);

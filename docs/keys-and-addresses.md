@@ -3,7 +3,7 @@
 Bettyjane's memory is written by two authors: the **agent**, which writes churning
 working memories, and the **human**, which writes durable pins. Each author owns a
 distinct key and a distinct address. A coin's controlling key is what authorizes
-writing it or spending (forgetting) it — **the signature is the permission**. The
+writing it or spending (forgetting) it, **the signature is the permission**. The
 `KIND` byte in the [coin format](./coin-format.md) only describes who authored a
 coin for readers; it is not an access check.
 
@@ -19,13 +19,13 @@ coin type (`1899`):
 | `human` | `PIN` | `m/44'/1899'/1'/0/0` |
 
 Each account derives a compressed secp256k1 public key, whose `HASH160`
-(`RIPEMD160(SHA256(pubkey))`) becomes a standard P2PKH **cashaddr** — the agent's
+(`RIPEMD160(SHA256(pubkey))`) becomes a standard P2PKH **cashaddr**: the agent's
 *memory address* and the human's *pin address*.
 
 ## Namespaces
 
 A namespace partitions an author's memory into separate, independently watchable
-addresses — one per project or topic, say — without changing the two-author
+addresses, one per project or topic, say, without changing the two-author
 split. A namespace is the BIP-44 **address index** (the last path component),
 while the author stays on the account level:
 
@@ -42,7 +42,7 @@ and is nudged off `0`, so a named namespace can never collide with the default;
 two distinct names colliding is a 1-in-2³¹ event.
 
 ```ts
-wallet.address("agent");              // default namespace — the original address
+wallet.address("agent");              // default namespace, the original address
 wallet.address("agent", "billing");  // a separate, deterministic address
 wallet.signer("agent", "billing");   // its signing key, to mint/forget there
 ```
@@ -63,9 +63,9 @@ import { Wallet, generateMnemonic } from "./src/index";
 const phrase = generateMnemonic();          // fresh 12-word BIP-39 phrase (128-bit)
 const wallet = Wallet.fromMnemonic(phrase); // or Wallet.fromSeed(seed)
 
-wallet.address("agent");        // "ecash:q..." — the memory address (fund this)
+wallet.address("agent");        // "ecash:q...", the memory address (fund this)
 wallet.account("human");        // { author, path, pubkey, address }
-wallet.signingKey("agent");     // { seckey, pubkey } — to spend/forget coins later
+wallet.signingKey("agent");     // { seckey, pubkey }, to spend/forget coins later
 ```
 
 - `generateMnemonic(strengthBits?)` draws cryptographically random entropy and
@@ -82,7 +82,7 @@ instance can hand out both authors' addresses and keys.
 ## Loading the key from the environment
 
 `Wallet.fromMnemonic` is the low-level constructor. In the CLI and the Claude
-Code hooks the key is not hardcoded — it is read from the environment, so the
+Code hooks the key is not hardcoded, it is read from the environment, so the
 seed lives in your shell or a secrets manager and never in the repo.
 
 ```ts

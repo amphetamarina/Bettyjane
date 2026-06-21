@@ -32,7 +32,7 @@ import { distill } from "../capture/distiller";
 
 const NETWORKS: readonly Network[] = ["mainnet", "testnet", "regtest"];
 
-const USAGE = `bj — Bettyjane command-line tool
+const USAGE = `bj: Bettyjane command-line tool
 
 Usage:
   bj load             [--network <net>] [--namespace <name>]
@@ -62,7 +62,7 @@ key; pin/unpin with the human key; consensus needs both. capture distills the
 turn with BJ_DISTILL_CMD (any model CLI) or the bundled claude.
 
 These verbs are the portable core: any agent harness drives Bettyjane by shelling
-out to them — no Claude Code hooks required.
+out to them, no Claude Code hooks required.
 `;
 
 function fail(message: string): never {
@@ -331,9 +331,9 @@ async function runInit(args: string[]): Promise<void> {
 
   console.log(`Bettyjane wallet (${network}${namespace === DEFAULT_NAMESPACE ? "" : `, namespace "${namespace}"`})`);
   console.log(`  human / pin address:    ${human}`);
-  console.log(`    funding: ${humanFunding.totalSats} sats (${humanFunding.funded ? "funded" : "NOT funded — fund this to pin"}), live pins: ${livePins.length}`);
+  console.log(`    funding: ${humanFunding.totalSats} sats (${humanFunding.funded ? "funded" : "NOT funded, fund this to pin"}), live pins: ${livePins.length}`);
   console.log(`  agent / memory address: ${agent}`);
-  console.log(`    funding: ${agentFunding.totalSats} sats (${agentFunding.funded ? "funded" : "NOT funded — fund this to capture"}), live memories: ${memories.length}`);
+  console.log(`    funding: ${agentFunding.totalSats} sats (${agentFunding.funded ? "funded" : "NOT funded, fund this to capture"}), live memories: ${memories.length}`);
 
   if (pins.length === 0) {
     console.log("\nFund the addresses above, then re-run with --pin to mint initial pins (signed with the human key).");

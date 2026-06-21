@@ -19,7 +19,7 @@ import {
 /**
  * Live end-to-end coverage for consensus memories (AMP-244): mint a 2-of-2 memo
  * at the P2SH consensus address, see it land in the live memory, then forget it
- * and see it leave — every spend signed by both keys. This is the real test that
+ * and see it leave, every spend signed by both keys. This is the real test that
  * the 2-of-2 scriptSig actually validates on a node. Skipped unless BJ_MNEMONIC
  * is set; CI funds the consensus address on regtest (see e2e.yml).
  */

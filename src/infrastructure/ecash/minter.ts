@@ -28,8 +28,8 @@ import { networkConfig, type Network, type NetworkConfig } from "./network";
 /**
  * The write half: build, sign, and broadcast the transactions that mint and
  * forget memos. A memo coin is the memory and its OP_RETURN is the text. Coins
- * are told apart by value — memo coins hold exactly {@link DUST_SATS}, funding
- * coins hold more — and minting only spends funding, so it never disturbs an
+ * are told apart by value, memo coins hold exactly {@link DUST_SATS}, funding
+ * coins hold more, and minting only spends funding, so it never disturbs an
  * existing memory.
  */
 
@@ -178,7 +178,7 @@ export class Minter {
   /**
    * Encrypt `value` to `recipientPubkey` and mint it as an encrypted memory coin,
    * readable only by the holder of the matching secret key. The blob must fit one
-   * inline payload — encrypted notes are not split across a pointer chain.
+   * inline payload, encrypted notes are not split across a pointer chain.
    */
   async rememberPrivate(
     value: string,
@@ -241,7 +241,7 @@ export class Minter {
   /**
    * Mint several memos in one transaction as eMPP sections, one dust coin each at
    * vouts 1..N so every note stays independently forgettable. Throws if they do
-   * not fit one OP_RETURN — use {@link Minter.rememberBatch} to pack them first.
+   * not fit one OP_RETURN, use {@link Minter.rememberBatch} to pack them first.
    */
   async mintBatch(memos: readonly Memo[], signer: Signer): Promise<MintBatchResult> {
     const ownerScript = Address.fromCashAddress(signer.address).toScript();
@@ -265,7 +265,7 @@ export class Minter {
   /**
    * Pack notes into eMPP batches that each fit one OP_RETURN and mint one
    * transaction per batch. Each note must fit a single section; a longer one
-   * throws — use {@link Minter.remember}, which splits across a pointer chain.
+   * throws, use {@link Minter.remember}, which splits across a pointer chain.
    */
   async rememberBatch(values: readonly string[], signer: Signer): Promise<MintBatchResult[]> {
     const memos = values.map((value) => withKind("memory", text(value)));

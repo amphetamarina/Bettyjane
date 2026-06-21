@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 /**
- * bj explorer — a local web view of the live memory at one or two addresses.
+ * bj explorer, a local web view of the live memory at one or two addresses.
  *
  * Usage:
  *   bun run watch [agent-address] [--human <pin-address>] [--network <net>] [--port <n>]
@@ -124,7 +124,7 @@ function start(options: Options) {
 }
 
 function printUsage() {
-  console.log(`bj explorer — visual view of the live memory at an address
+  console.log(`bj explorer, visual view of the live memory at an address
 
 Usage:
   bun run watch [agent-address] [options]

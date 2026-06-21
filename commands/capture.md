@@ -15,5 +15,5 @@ turn's text (the user's ask plus your response) on stdin:
 (If the current directory is not the Bettyjane repo because the plugin is
 installed elsewhere, run the same command against `$CLAUDE_PLUGIN_ROOT/bin/bj.ts`
 instead.) Distillation uses `$BJ_DISTILL_CMD` (any model CLI) or the bundled
-`claude`. Memories are public and permanent — never include secrets. The
+`claude`. Memories are public and permanent, never include secrets. The
 distiller may mint nothing if the turn carried nothing worth keeping.

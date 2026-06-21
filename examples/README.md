@@ -2,7 +2,7 @@
 
 Runnable scripts that drive Bettyjane against the live eCash **testnet** using
 only the public API. They are the human-facing companion to the gated end-to-end
-tests in [`test/e2e`](../test/e2e) — same flow, but narrated and meant to be run
+tests in [`test/e2e`](../test/e2e), same flow, but narrated and meant to be run
 by hand.
 
 ## full-loop.ts
@@ -33,16 +33,16 @@ BJ_MNEMONIC="twelve word phrase ..." bun examples/features.ts
 
 It covers, with the on-chain call for each shown in a comment:
 
-- **Content-signed memories** — `signingDigest` + `encodeSignedMemo`, then
+- **Content-signed memories**: `signingDigest` + `encodeSignedMemo`, then
   `verifyMemoAuthor`. On chain: `minter.remember(note, signer)` signs inline text
   automatically.
-- **Namespaces** — `wallet.address("agent", "billing")` derives a separate,
+- **Namespaces**: `wallet.address("agent", "billing")` derives a separate,
   watchable address; the default namespace reproduces the original.
-- **eMPP batching** — `batchMemos` + `encodeMemoBatch` pack several notes into one
+- **eMPP batching**: `batchMemos` + `encodeMemoBatch` pack several notes into one
   `OP_RETURN`. On chain: `minter.rememberBatch([...notes], signer)`.
-- **Encrypted private memories** — `encryptToPubkey` / `decryptWithSeckey` round
+- **Encrypted private memories**: `encryptToPubkey` / `decryptWithSeckey` round
   trip. On chain: `minter.rememberPrivate(note, recipientPubkey, signer)`.
-- **Consensus memories** — `consensusAddress([a, b])` is the 2-of-2 P2SH address.
+- **Consensus memories**: `consensusAddress([a, b])` is the 2-of-2 P2SH address.
   On chain: `ConsensusMinter.fromNetwork(net).mint(consensus(text(note)), signers)`.
 
 ## Funding
@@ -52,7 +52,7 @@ fund it two ways.
 
 ### Regtest (recommended, no faucet)
 
-Run a local regtest node and generate coins to the address yourself — fully
+Run a local regtest node and generate coins to the address yourself, fully
 self-contained, no faucet. See
 [docs/testnet-and-e2e.md](../docs/testnet-and-e2e.md) for the node + `BJ_CHRONIK_URL`
 setup, then:

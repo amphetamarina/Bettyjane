@@ -3,8 +3,8 @@ description: Mint a durable human pin to Bettyjane memory (signed with the human
 allowed-tools: Bash(bun bin/bj.ts pin:*)
 ---
 
-Mint the note below as a Bettyjane human **pin** — a durable, human-authored
-memory signed with the human key — then report the resulting txid.
+Mint the note below as a Bettyjane human **pin**: a durable, human-authored
+memory signed with the human key, then report the resulting txid.
 
 Run the bj CLI from the Bettyjane project root with the Bash tool:
 

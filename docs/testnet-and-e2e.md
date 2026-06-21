@@ -5,12 +5,12 @@ The unit suites are hermetic: they run against fakes and touch no network, so
 needs a live chain and Chronik, which is what the examples and the gated
 end-to-end suite are for. There are two ways to get a funded chain:
 
-- **regtest** — a private chain you run yourself, where coins are generated on
+- **regtest**: a private chain you run yourself, where coins are generated on
   demand. No faucet, fully deterministic. This is what CI uses.
-- **testnet** — the public test network. Realistic, but funding is a manual,
+- **testnet**: the public test network. Realistic, but funding is a manual,
   unreliable step (see below).
 
-## Regtest (no faucet) — the CI path
+## Regtest (no faucet), the CI path
 
 The [`E2E (regtest)`](../.github/workflows/e2e.yml) workflow downloads Bitcoin
 ABC, starts a regtest node with in-node Chronik, generates blocks to the agent
@@ -49,7 +49,7 @@ Funding a testnet address is an out-of-band step, and there is no headless
 auto-funding:
 
 - The public testnet faucet <https://faucet.fabien.cash/> is browser-only and is
-  frequently down or drained — at the time of writing it was not working.
+  frequently down or drained, at the time of writing it was not working.
 - The official [`cashtab-faucet`](https://github.com/Bitcoin-ABC/bitcoin-abc/tree/master/apps/cashtab-faucet)
   guards every claim endpoint with reCAPTCHA and validates `ecash:` (mainnet)
   addresses, so it cannot be scripted and is not aimed at testnet.
@@ -84,7 +84,7 @@ BJ_NETWORK=regtest BJ_CHRONIK_URL=http://127.0.0.1:8331 \
 ## The e2e suite
 
 [`test/e2e`](../test/e2e) asserts the flow on chain. The block is wrapped in
-`describe.skipIf(!BJ_MNEMONIC)`, so the default `bun test` collects but skips it —
+`describe.skipIf(!BJ_MNEMONIC)`, so the default `bun test` collects but skips it,
 the hermetic suite stays green without a secret or network. It reads `BJ_NETWORK`
 and `BJ_CHRONIK_URL` to target regtest or testnet, refuses to run on mainnet, and
 waits for funding before minting so it does not race Chronik indexing.
@@ -92,7 +92,7 @@ waits for funding before minting so it does not race Chronik indexing.
 ## CI split
 
 - The main [`CI`](../.github/workflows/ci.yml) workflow runs `bun test` on every
-  push and pull request and stays hermetic — it never runs the e2e suite.
+  push and pull request and stays hermetic, it never runs the e2e suite.
 - The [`E2E (regtest)`](../.github/workflows/e2e.yml) workflow runs the live suite
   against a regtest node on pull requests, pushes to `main`, and manual dispatch,
   so a regression blocks the merge. It needs no faucet and no secret. The

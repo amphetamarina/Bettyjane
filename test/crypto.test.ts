@@ -65,7 +65,7 @@ describe("ECIES encrypt/decrypt (AMP-242)", () => {
   });
 
   test("multibyte UTF-8 survives the round trip", () => {
-    const blob = encryptToPubkey(enc("café — 日本語 — 🪙"), agent.pubkey);
-    expect(dec(decryptWithSeckey(blob, agent.seckey))).toBe("café — 日本語 — 🪙");
+    const blob = encryptToPubkey(enc("café · 日本語 · 🪙"), agent.pubkey);
+    expect(dec(decryptWithSeckey(blob, agent.seckey))).toBe("café · 日本語 · 🪙");
   });
 });

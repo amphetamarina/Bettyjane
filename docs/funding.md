@@ -5,7 +5,7 @@ Before the agent can write, its **memory address** (the agent account from
 memory coin carries dust, and every write pays a fee. Funding is the first half
 of bootstrap.
 
-This module does not *send* the funds — that happens out of band, from your own
+This module does not *send* the funds, that happens out of band, from your own
 wallet or a testnet faucet, to the address `wallet.address("agent")`. What it
 does is **observe**: read the address from the chain and decide whether it is
 funded yet, and **wait** for the coins to land.
@@ -48,7 +48,7 @@ const funded = await chronik.awaitFunding(address, policy, {
 });
 ```
 
-- `minimumSats` is the threshold for "funded" — set it to whatever the first
+- `minimumSats` is the threshold for "funded", set it to whatever the first
   write needs (a memory coin's dust plus fee). It is explicit; there is no hidden
   default.
 - `requireConfirmed: true` counts only confirmed coins, ignoring mempool ones.

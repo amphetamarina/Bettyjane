@@ -1,298 +1,155 @@
 # Bettyjane
 
-**An experiment in giving an AI agent a persistent memory — and a readable trace of
-how it changes — written as coins on a public blockchain I happen to know well.**
+An experiment in giving an AI agent a persistent memory, and a readable trace of
+how it changes, stored as coins on [eCash](https://e.cash) (XEC), a blockchain I
+know well. Each memory is one coin; the agent's mind is the set of coins it holds,
+and the chain keeps the history of every change. I used eCash because I know it,
+not because it is the only way to do this.
 
-An LLM has amnesia: it forgets everything the moment a reply ends. Bettyjane is my
-experiment in giving the team a notebook so it doesn't have to, and in tracing how
-that memory changes over time. The notebook is made of tiny coins on
-[eCash](https://e.cash) (XEC), one coin per memory. I reached for eCash because it
-is a chain I know well — not because it is the only way to do this; the point was
-to see how AI memory and tracing feel when they live on a public ledger.
+Live instance: **[bettyjane.marina.cash](https://bettyjane.marina.cash)**.
 
-There's a live instance at **[bettyjane.marina.cash](https://bettyjane.marina.cash)**
-if you want to poke at one without installing anything.
+## How it works
 
-## The idea in one picture
+A memory is a tiny coin. **Remembering** mints one; **forgetting** spends it. The
+unspent coins at an address are what the team remembers now; the chain is the
+history of how that set changed. Nothing lives on your laptop; if the process
+dies, the memory is still on chain.
 
-Picture a pile of coins on a table. That pile is the agent's mind right now.
+There are two authors, each with their own key:
 
-- **Remembering** lays a new coin on the table (with its text attached).
-- **Forgetting** picks a coin up and pockets it.
-- A **photo is taken at every change**, so you can always see what the table held
-  last week, even after coins are pocketed.
+- the **agent** writes fast, churning **memories**;
+- the **human** writes rare, durable **pins**: standing instructions the agent
+  must not lose.
 
-The coins on the table right now are what the team *remembers today*. The album of
-photos — the blockchain — is the *full history of how that memory changed*. Read
-the memory in one call: list the unspent coins at an address. Nothing lives on
-your laptop; if the program crashes, the memory is still on the chain.
+Every coin is signed, so authorship is provable, and the agent's key cannot touch
+the human's pins. Four verbs, split by key: `remember` / `forget` for the agent,
+`pin` / `unpin` for the human.
 
-## Two pens, one notebook
+This repo is the memory layer: it derives the keys, encodes and decodes the
+on-chain format, mints and reads coins, picks a small working set each turn, and
+tidies duplicates. The LLM and the loop driving it live outside. Full design in
+**[docs/SPEC.md](docs/SPEC.md)**.
 
-The notebook has two authors, each with their own key and their own pile of coins:
+## What's built
 
-- **The agent** writes fast, churning **working memories** — what it picked up
-  this session.
-- **The human** writes rare, durable **pins** — corrections and standing
-  instructions the agent must not lose.
+Beyond the four verbs, each backward compatible with existing coins:
 
-Every coin is signed by whoever wrote it, so authorship is always provable. And
-because the human's pins live at the human's address, *the agent's key cannot
-erase them* — it can read a pin and obey it, never delete it. The signature is the
-only permission system there is.
+- **Signed memories**: authorship provable from the coin alone (`authorVerified`).
+- **Namespaces**: partition memory into separate watchable addresses (BIP-44).
+- **eMPP batching**: a turn's notes in one transaction, each still forgettable.
+- **Encrypted memories**: ECIES ciphertext on chain, readable only with the key.
+- **2-of-2 consensus memories**: a coin neither key can write or forget alone.
 
-> Four verbs, split by key: the agent does `remember(note)` / `forget(id)`; the
-> human does `pin(note)` / `unpin(id)`.
-
-## What this repository is
-
-This is the **memory layer** — the notebook and the pens. It derives the two keys,
-watches an address for funding, encodes and decodes the on-chain format, mints and
-reads memory coins, picks a small relevant working set each turn, and tidies
-duplicates. The **brain** (an LLM) and the **runner** (your loop, or Claude Code's
-hooks) live outside it and call in.
-
-The full design — coin format, retrieval, capture/consolidate, the integration
-API, the road ahead — is in **[docs/SPEC.md](docs/SPEC.md)**.
-
-## What works
-
-The library derives keys and addresses, observes funding, encodes and decodes the
-memo format, and mints and reads memory coins. The four verbs are implemented;
-notes too large for one coin are split across a [pointer chain](docs/coin-format.md)
-and reassembled on read. A two-function integration API (`loadMemory` /
-`saveMemory`), an off-chain embedding index, a dependency-free embedder, and
-`retrieveRelevant` give a small working set each turn. Any agent drives it through
-the **`bj` CLI** — `load`, `capture`, `consolidate`, `remember`, `forget`,
-`private`, `consensus`, `pin`, `unpin`, `inspect`, `init` — so it works across
-harnesses, not just Claude Code; the repo also installs as a Claude Code plugin
-exposing those verbs as skills. A web explorer shows the live memory. This is a
-personal experiment, not a packaged product: there is no npm release — consume it
-as a library or plugin from this repo.
-
-A handful of things build on the coin format, each backward compatible with
-existing coins (see [coin-format.md](docs/coin-format.md); run them with
-[`examples/features.ts`](examples/features.ts)):
-
-- **Content-signed memories (v2).** A memo can carry a recoverable ECDSA signature
-  over its content, so authorship is provable from the coin alone, not only in its
-  spend transaction. The reader and explorer report `authorVerified` per coin.
-- **Memory namespaces.** An author's memory can be partitioned into separate,
-  independently watchable addresses (one per project/topic) via BIP-44 address
-  indices; the default namespace reproduces the original address.
-- **eMPP batching.** A turn's notes can ride in one transaction as eMPP sections,
-  one dust coin per section, so each note stays independently forgettable.
-- **Encrypted private memories.** A note can live on chain as ECIES ciphertext,
-  readable only by the holder of the key — opt-in via `rememberPrivate`.
-- **2-of-2 consensus memories.** A shared-truth tier neither key can write or
-  forget alone: the coin lives at a 2-of-2 P2SH address, so every spend needs both
-  signatures.
-
-## Requirements
-
-- [mise](https://mise.jdx.dev) — pins the toolchain (Bun 1.2)
+Tour them offline with [`examples/features.ts`](examples/features.ts); the wire
+format is in [docs/coin-format.md](docs/coin-format.md).
 
 ## Quickstart
 
 ```bash
-mise install        # install the pinned Bun toolchain
-mise run install    # install dependencies (bun install)
-mise run test       # run the test suite (bun test)
-mise run typecheck  # type-check without emitting
+mise install        # pinned Bun toolchain
+mise run install    # dependencies
+mise run test       # tests
+mise run typecheck  # types
 ```
 
-## Inspector (CLI)
+## CLI
 
-A small `bj` tool for reading what actually landed on chain.
-
-```bash
-# See the decoded pin / memory in any tx
-bun bin/bj.ts inspect a8ef7cba751f22df120e3e8123cdde103303d567cca1fdb71bb6e07750821af7 --network mainnet
-
-# Machine readable (for scripts / agents)
-bun bin/bj.ts inspect <txid> --json
-```
-
-It prints the memo coin outpoint (`txid:1`), whether the coin is still live
-(unspent), the kind/content, and the raw `OP_RETURN`. `bj init` shows both
-addresses, their funding, and the live memory; `bj pin` / `bj unpin` are the human
-verbs. Use `--network testnet` for test coins.
-
-## Explorer (web)
-
-There's a hosted instance at **[bettyjane.marina.cash](https://bettyjane.marina.cash)**
-— a read-only window with two views, like two ways of looking at the same table of
-coins:
-
-- **Explore** is one team's table. Type an agent address and a human address and
-  you see their live memory side by side: the human's durable pins and the agent's
-  working memories. The page keeps watching the chain, so fresh writes show up on
-  their own. Signed, encrypted, and 2-of-2 consensus coins each get a little badge,
-  and a **show forgotten** toggle opens the whole album, every memory ever minted,
-  including the ones that were later picked back up (spent).
-- **Discover** is every table at once. It pools every memory minted under the
-  `BJNE` tag across the chain, no matter who wrote it, and labels each one with the
-  address that authored it — a way to see whatever has been written with this tool,
-  mine or anyone else's who has tried it.
-
-Want your own copy? It is the same code that runs the hosted site:
-
-```bash
-bun run watch                                   # enter addresses in the page
-bun run watch ecash:qq3u… --human ecash:qpry… -n mainnet   # pre-fill them
-```
-
-It serves a local page (default `http://localhost:4173`), and it deploys to Vercel
-by importing the repo. See [`explorer/`](explorer).
-
-## Library usage
-
-Lighting the pilot light: derive the wallet, fund the human's pin address, then
-mint the first pins from the human key.
-
-```ts
-import {
-  ChronikGateway,
-  Minter,
-  Wallet,
-  generateMnemonic,
-  pin,
-  text,
-} from "./src/index";
-
-// Create (or recover with an existing phrase) the wallet that holds both keys.
-const wallet = Wallet.fromMnemonic(generateMnemonic(), { prefix: "ectest" });
-const human = wallet.signer("human");
-
-// Fund this address with testnet XEC out of band, then wait for it to arrive.
-console.log("Fund:", human.address);
-const chronik = ChronikGateway.fromNetwork("testnet");
-await chronik.awaitFunding(human.address, { minimumSats: 10_000n });
-
-// Mint the team's first pins. Each coin is signed by the human key.
-const minter = Minter.fromNetwork("testnet");
-const results = await minter.mintAll(
-  [
-    pin(text("name: Bettyjane")),
-    pin(text("goal: keep a durable, shared memory")),
-    pin(text("standing: cite the eCash upgrade date as 2025-11-15")),
-  ],
-  human,
-);
-console.log("Minted:", results.map((r) => r.txid));
-```
-
-The public API is re-exported from [`src/index.ts`](src/index.ts).
-
-## Examples and end-to-end tests
-
-The default `mise run test` suite is hermetic — every test runs against fakes and
-touches no network. Real on-chain coverage lives separately and runs against
-either a private **regtest** node (no faucet, deterministic — what CI uses) or
-public **testnet**:
-
-- [`examples/full-loop.ts`](examples/full-loop.ts) — a narrated, runnable loop
-  (remember → list → forget). Honors `BJ_NETWORK` / `BJ_CHRONIK_URL`. See
-  [`examples/README.md`](examples/README.md).
-- [`test/e2e`](test/e2e) — a gated end-to-end suite that asserts the same flow on
-  chain. It is skipped unless `BJ_MNEMONIC` is set. The
-  [`E2E (regtest)`](.github/workflows/e2e.yml) workflow runs it against a regtest
-  node with no faucet; you can also run it locally:
-
-  ```bash
-  # testnet (fund the wallet yourself)
-  BJ_MNEMONIC="twelve word phrase ..." mise run test-e2e
-
-  # regtest (generate coins locally — see the docs)
-  BJ_NETWORK=regtest BJ_CHRONIK_URL=http://127.0.0.1:8331 \
-    BJ_MNEMONIC="abandon ... about" mise run test-e2e
-  ```
-
-See [docs/testnet-and-e2e.md](docs/testnet-and-e2e.md) for the full funding and CI
-story.
-
-## Drive it from any agent (CLI + skills)
-
-Bettyjane's portable interface is the **`bj` CLI** — every capability is a verb,
-so any agent runtime (Claude Code, Codex, opencode, Grok, Hermes, or a plain
-shell loop) gets persistent on-chain memory by shelling out to it, no
-harness-specific hooks required:
+Every capability is a `bj` verb, so any agent (or a shell loop) gets on-chain
+memory by shelling out:
 
 ```bash
 bun bin/bj.ts load                                 # before a turn: load memory
 printf '%s' "$turn_text" | bun bin/bj.ts capture   # after a turn: distill + mint
-bun bin/bj.ts consolidate                          # at session end: tidy duplicates
+bun bin/bj.ts consolidate                          # session end: tidy duplicates
+bun bin/bj.ts inspect <txid> [--json]              # decode a memo on chain
 ```
 
-`load`/`remember`/`forget`/`private`/`consensus`/`pin`/`unpin`/`capture`/`consolidate`
-are all CLI verbs (`bun bin/bj.ts --help`). Distillation runs through `BJ_DISTILL_CMD`
-(any model CLI — `"opencode run"`, `"codex exec"`, …) or the bundled `claude`. See
-[AGENTS.md](AGENTS.md#using-bettyjane-as-memory-from-any-agent-harness) for the
-runner loop and [docs/coin-format.md](docs/coin-format.md) for the mainnet "real,
-public, and permanent" warning.
+`load`, `remember`, `forget`, `private`, `consensus`, `pin`, `unpin`, `capture`,
+`consolidate`, `inspect`, `init` are all verbs (`--help` for the full list). Writes
+need `BJ_MNEMONIC` / `BJ_NETWORK`; reads need only `BJ_MNEMONIC`. Capture distills
+through `BJ_DISTILL_CMD` (any model CLI) or the bundled `claude`.
 
-### Install as a plugin
+## Explorer
 
-The repo also ships as a Claude Code plugin: the same verbs, now as slash-command
-skills you can reach from any session. Install it once through the marketplace
-manifest:
+A read-only web view, hosted at
+**[bettyjane.marina.cash](https://bettyjane.marina.cash)** and runnable locally:
 
 ```bash
-/plugin marketplace add amphetamarina/Bettyjane   # or a local path to this repo
+bun run watch                                   # type addresses in the page
+bun run watch ecash:qq3u… --human ecash:qpry…   # or pre-fill them
+```
+
+**Explore** shows one team's live memory, pins and memories side by side, polled
+from the chain, with a toggle for forgotten coins. **Discover** pools every memory
+minted under the `BJNE` tag, whoever wrote it. Default `http://localhost:4173`;
+deploys to Vercel by importing the repo.
+
+## Library
+
+```ts
+import { ChronikGateway, Minter, Wallet, generateMnemonic, pin, text } from "./src/index";
+
+const wallet = Wallet.fromMnemonic(generateMnemonic(), { prefix: "ectest" });
+const human = wallet.signer("human");
+
+const chronik = ChronikGateway.fromNetwork("testnet");
+await chronik.awaitFunding(human.address, { minimumSats: 10_000n }); // fund it first
+
+const minter = Minter.fromNetwork("testnet");
+await minter.mintAll([pin(text("name: Bettyjane")), pin(text("goal: shared memory"))], human);
+```
+
+The public API is re-exported from [`src/index.ts`](src/index.ts); a brain
+integrates through `loadMemory` / `saveMemory`.
+
+## Plugin (Claude Code)
+
+The repo installs as a plugin exposing the verbs as slash commands:
+
+```bash
+/plugin marketplace add amphetamarina/Bettyjane
 /plugin install bettyjane@bettyjane
 ```
 
-The nine skills, grouped by whose pen they use:
+`/load` `/remember` `/forget` `/pin` `/unpin` `/private` `/consensus` `/capture`
+`/consolidate`: same verbs, same wallet env vars. Writes spend real value, so
+nothing happens unless you run them.
 
-- **`/load`** brings the team's current memory into context, the human's pins plus
-  a small working set of the agent's memories, so a session starts knowing what
-  you both remember.
-- **`/remember`** lays down a working note as an agent memory, signed with the
-  agent key.
-- **`/forget`** picks an agent memory back up by its coin id (`txid:1`); the chain
-  still keeps the history.
-- **`/pin`** writes a durable human note, signed with the human key, the kind the
-  agent must read and never lose.
-- **`/unpin`** lifts a human pin back off the table by its coin id (human key only).
-- **`/private`** remembers a note encrypted to your own key, so only the
-  ciphertext goes public and the plain text stays yours.
-- **`/consensus`** mints a shared-truth coin at a 2-of-2 address, one that neither
-  pen can write or forget without the other.
-- **`/capture`** distills the latest turn into notes and mints the keepers, the
-  manual version of the old turn-end hook.
-- **`/consolidate`** tidies the working set, folding near-duplicate memories down
-  to one coin each.
+## Tests
 
-The CLI needs `bun` on `PATH` and your wallet env vars (`BJ_MNEMONIC` /
-`BJ_NETWORK`). Reading memory needs only `BJ_MNEMONIC`; the write verbs spend real
-value, so nothing is written unless you run them.
+`mise run test` is hermetic (fakes, no network). On-chain coverage is separate and
+gated on `BJ_MNEMONIC`:
 
-## Project layout
-
-```
-bin/                the bj CLI — a verb per capability (the portable interface)
-capture/            turn rendering + the pluggable distiller (BJ_DISTILL_CMD)
-commands/           Claude Code skills, one per verb (remember, capture, pin, ...)
-examples/           runnable scripts (the agent-verb loop, feature tour)
-explorer/           the web view of live memory (local server + Vercel function)
-public/             the explorer's static page (served locally and on Vercel)
-src/
-  domain/           pure, chain-agnostic model (memo, author, funding, retrieval)
-  application/      the integration API (loadMemory / saveMemory)
-  infrastructure/
-    ecash/          eCash adapters: wallet, chronik, codec, minter, reader, network
-test/               bun:test suites, one per module (e2e/ is gated, live)
-docs/               the spec and per-subsystem notes
+```bash
+BJ_MNEMONIC="twelve words ..." mise run test-e2e               # testnet
+BJ_NETWORK=regtest BJ_CHRONIK_URL=http://127.0.0.1:8331 \
+  BJ_MNEMONIC="abandon ... about" mise run test-e2e            # regtest (CI)
 ```
 
-## Documentation
+See [docs/testnet-and-e2e.md](docs/testnet-and-e2e.md).
 
-- [docs/SPEC.md](docs/SPEC.md) — the full design and rationale
-- [docs/keys-and-addresses.md](docs/keys-and-addresses.md) — the two-key, two-author model
-- [docs/coin-format.md](docs/coin-format.md) — the on-chain memo (OP_RETURN) format
-- [docs/funding.md](docs/funding.md) — funding an address and waiting for it
-- [docs/testnet-and-e2e.md](docs/testnet-and-e2e.md) — testnet funding, examples, and the e2e suite
+## Layout
 
-## Contributing
+```
+bin/                       the bj CLI, a verb per capability
+capture/                   turn rendering + pluggable distiller (BJ_DISTILL_CMD)
+commands/                  Claude Code skills, one per verb
+examples/                  runnable scripts (agent loop, feature tour)
+explorer/                  web view (local server + Vercel function)
+public/                    the explorer's static page
+src/domain/                pure, chain-agnostic model
+src/application/           integration API (loadMemory / saveMemory)
+src/infrastructure/ecash/  eCash adapters
+test/                      bun:test suites (e2e/ is gated)
+docs/                      spec and per-subsystem notes
+```
 
-See [AGENTS.md](AGENTS.md) for the architecture, conventions, and gotchas.
+## Docs
+
+- [SPEC.md](docs/SPEC.md): full design
+- [keys-and-addresses.md](docs/keys-and-addresses.md): the two-key model
+- [coin-format.md](docs/coin-format.md): the on-chain memo format
+- [funding.md](docs/funding.md): funding an address
+- [testnet-and-e2e.md](docs/testnet-and-e2e.md): testnet and e2e
+
+See [AGENTS.md](AGENTS.md) for architecture and conventions.

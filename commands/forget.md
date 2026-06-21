@@ -3,8 +3,8 @@ description: Forget a Bettyjane agent memory by its coin id (txid:vout)
 allowed-tools: Bash(bun bin/bj.ts forget:*)
 ---
 
-Forget the agent memory named by the coin id below — spend its coin so it leaves
-the live set — then report the spend txid. The chain keeps the history.
+Forget the agent memory named by the coin id below, spend its coin so it leaves
+the live set, then report the spend txid. The chain keeps the history.
 
 Run the bj CLI from the Bettyjane project root with the Bash tool:
 

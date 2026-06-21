@@ -147,7 +147,7 @@ function fitsBatch(memos: Memo[]): boolean {
 /**
  * Decode a coin's output script, or null when it is not a Bettyjane memo (so
  * scans skip foreign coins cheaply). Throws when the prefix is ours but the rest
- * is malformed. The signature is dropped — use {@link decodeSignedMemo} to keep it.
+ * is malformed. The signature is dropped, use {@link decodeSignedMemo} to keep it.
  */
 export function decodeMemo(script: Script): Memo | null {
   return parse(script)?.memo ?? null;

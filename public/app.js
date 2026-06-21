@@ -161,7 +161,7 @@ function statusRow(memory, { signed }) {
 
 function contentEl(content) {
   if (content.type === "text") return make("div", "content", content.text);
-  if (content.type === "encrypted") return make("div", "content encrypted", "encrypted — readable only with the key");
+  if (content.type === "encrypted") return make("div", "content encrypted", "encrypted, readable only with the key");
   const pointer = content.pointerHex ? `pointer ${content.pointerHex}` : "pointer (stored across multiple coins)";
   return make("div", "content pointer", pointer);
 }

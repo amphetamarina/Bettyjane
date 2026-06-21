@@ -49,7 +49,7 @@ describe("encode/decode round-trips", () => {
   });
 
   test("multibyte UTF-8 text", () => {
-    const memo = memory(text("café — naïve — 日本語 — 🪙"));
+    const memo = memory(text("café · naïve · 日本語 · 🪙"));
     expect(decodeMemo(encodeMemo(memo))).toEqual(memo);
   });
 });

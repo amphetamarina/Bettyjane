@@ -15,8 +15,8 @@ import { DUST_SATS } from "./protocol";
  * rule: the next mint re-selects the same funding coin before the previous
  * change has propagated. This threads each broadcast's change forward as the
  * only funding coin for the next mint, so consecutive mints spend distinct coins
- * without waiting on propagation. Change is always last, so every mint path —
- * inline, pointer chunks, eMPP batches — works.
+ * without waiting on propagation. Change is always last, so every mint path,
+ * inline, pointer chunks, eMPP batches, works.
  */
 export function changeThreadingMinter(
   baseCoins: CoinSource,
