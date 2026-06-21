@@ -22,7 +22,7 @@ bun examples/full-loop.ts
 
 ## features.ts
 
-A guided tour of the post-v0.1.0 features, using only the public API. Every step
+A guided tour of the layered features, using only the public API. Every step
 runs **offline** (no network, no funding), so it doubles as a "how to use each
 feature" reference you can run as-is:
 

@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 /**
- * A guided tour of the post-v0.1.0 features, using only the public API. Every
+ * A guided tour of the layered features, using only the public API. Every
  * step here runs offline (no network, no funding) so you can read it as a "how
  * to use each feature" reference and run it as-is:
  *

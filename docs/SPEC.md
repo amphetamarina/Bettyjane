@@ -1,10 +1,10 @@
 # Bettyjane — specification
 
-Persistent, public, tamper-evident memory for a human-plus-agent team, stored on
-eCash (XEC). Every memory is a coin. This document describes the system as built
-in v0.1.0: the coin format, the two-key model, how memory is captured and tidied,
-how a small working set is chosen each turn, the integration API, and the tools
-around it (CLI, plugin, explorer). It is written to be understood and run.
+An experiment in persistent, public memory for a human-plus-agent team, stored on
+eCash (XEC) — a chain I know well. Every memory is a coin. This document describes
+the system as built: the coin format, the two-key model, how memory is captured and
+tidied, how a small working set is chosen each turn, the integration API, and the
+tools around it (CLI, plugin, explorer). It is written to be understood and run.
 
 ---
 
@@ -269,7 +269,7 @@ Lighting the pilot light. `bj init` is the glue that does it.
 
 ---
 
-## Why bother (the payoff)
+## What living on a chain buys
 
 - **The runner is disposable; the agent is not.** Kill the runner, lose the
   laptop — the team's whole memory is on the chain. Point a fresh runner at the
