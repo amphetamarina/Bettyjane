@@ -1,11 +1,11 @@
 import { ChronikClient } from "chronik-client";
 import { Address, Script, fromHex, strToBytes, toHex } from "ecash-lib";
-import type { MemoKind } from "../src/domain/memo.js";
-import { authorOf, type Author } from "../src/domain/author.js";
-import { decodeMemo, decodeMemoBatch } from "../src/infrastructure/ecash/memo-codec.js";
-import { DUST_SATS } from "../src/infrastructure/ecash/protocol.js";
-import { networkConfig, type Network } from "../src/infrastructure/ecash/network.js";
-import { txExplorerUrl } from "./view.js";
+import type { MemoKind } from "../src/domain/memo";
+import { authorOf, type Author } from "../src/domain/author";
+import { decodeMemo, decodeMemoBatch } from "../src/infrastructure/ecash/memo-codec";
+import { DUST_SATS } from "../src/infrastructure/ecash/protocol";
+import { networkConfig, type Network } from "../src/infrastructure/ecash/network";
+import { txExplorerUrl } from "./view";
 
 /**
  * The chain-wide pool of memories under the `BJNE` LOKAD id, not just one

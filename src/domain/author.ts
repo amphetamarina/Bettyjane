@@ -1,4 +1,4 @@
-import type { MemoKind } from "./memo.js";
+import type { MemoKind } from "./memo";
 
 /**
  * The two authors of the shared memory. A coin's signature, not its KIND byte,
