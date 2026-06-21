@@ -14,6 +14,7 @@ import {
 } from "ecash-lib";
 import { ChronikClient } from "chronik-client";
 import type { Memo } from "../../domain/memo";
+import type { Outpoint } from "../../domain/coin-id";
 import { encodeMemo } from "./memo-codec";
 import { DUST_SATS } from "./protocol";
 import { networkConfig, type Network, type NetworkConfig } from "./network";
@@ -152,7 +153,7 @@ export class ConsensusMinter {
 
   /** Forget a consensus memo by spending its coin, signed by both parties. */
   async forget(
-    outpoint: { readonly txid: string; readonly outIdx: number },
+    outpoint: Outpoint,
     signers: readonly ConsensusSigner[],
     prefix?: string,
   ): Promise<SpendResult> {

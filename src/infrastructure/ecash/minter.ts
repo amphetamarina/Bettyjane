@@ -11,7 +11,7 @@ import {
 import { ChronikClient } from "chronik-client";
 import { encrypted, memory, pin, pointer, text, type Memo, type MemoContent, type MemoKind } from "../../domain/memo";
 import { encryptToPubkey } from "../../domain/crypto";
-import { parseCoinId } from "../../domain/coin-id";
+import { parseCoinId, type Outpoint } from "../../domain/coin-id";
 import { chunkText } from "../../domain/chunking";
 import type { Signer } from "./wallet";
 import { batchMemos, encodeMemo, encodeMemoBatch, encodeSignedMemo, signingDigest } from "./memo-codec";
@@ -39,7 +39,7 @@ const MEMO_COIN_VOUT = 1;
 
 /** A spendable output the minter may consume to pay for a write. */
 export interface SpendableCoin {
-  readonly outpoint: { readonly txid: string; readonly outIdx: number };
+  readonly outpoint: Outpoint;
   readonly sats: bigint;
 }
 
@@ -78,7 +78,7 @@ export interface MintBatchResult {
 export interface SpendResult {
   readonly txid: string;
   readonly rawTx: Uint8Array;
-  readonly outpoint: { readonly txid: string; readonly outIdx: number };
+  readonly outpoint: Outpoint;
 }
 
 /** Thrown when an address has no funding coin large enough to pay for a write. */
@@ -94,7 +94,7 @@ export class InsufficientFundsError extends Error {
 
 /** Thrown when the coin asked to be forgotten is not live at the author's address. */
 export class MemoCoinNotFoundError extends Error {
-  constructor(readonly outpoint: { readonly txid: string; readonly outIdx: number }) {
+  constructor(readonly outpoint: Outpoint) {
     super(`no live coin at ${outpoint.txid}:${outpoint.outIdx} to forget`);
     this.name = "MemoCoinNotFoundError";
   }
@@ -281,10 +281,7 @@ export class Minter {
    * funding coin back as change. No OP_RETURN: the spend itself is the record,
    * and other coins at the address are left untouched.
    */
-  async spend(
-    outpoint: { readonly txid: string; readonly outIdx: number },
-    signer: Signer,
-  ): Promise<SpendResult> {
+  async spend(outpoint: Outpoint, signer: Signer): Promise<SpendResult> {
     const ownerScript = Address.fromCashAddress(signer.address).toScript();
     const coins = await this.coins.spendableCoins(signer.address);
     const target = coins.find((coin) => sameOutpoint(coin.outpoint, outpoint));
@@ -346,10 +343,7 @@ export class Minter {
   }
 }
 
-function sameOutpoint(
-  a: { readonly txid: string; readonly outIdx: number },
-  b: { readonly txid: string; readonly outIdx: number },
-): boolean {
+function sameOutpoint(a: Outpoint, b: Outpoint): boolean {
   return a.txid === b.txid && a.outIdx === b.outIdx;
 }
 

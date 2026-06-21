@@ -1,6 +1,7 @@
 import { Ecc, Script, fromHex, toHex } from "ecash-lib";
 import { ChronikClient } from "chronik-client";
 import type { Memo } from "../../domain/memo.js";
+import type { Outpoint } from "../../domain/coin-id.js";
 import { decodeMemo, decodeMemoBatch, verifyMemoAuthor } from "./memo-codec.js";
 import { DUST_SATS, TXID_BYTES } from "./protocol.js";
 import { MalformedMemoError } from "./errors.js";
@@ -20,7 +21,7 @@ const ENCRYPTED_PLACEHOLDER = "[encrypted]";
 
 /** An unspent output at an address: where the coin sits and how much it holds. */
 export interface UnspentCoin {
-  readonly outpoint: { readonly txid: string; readonly outIdx: number };
+  readonly outpoint: Outpoint;
   readonly sats: bigint;
   readonly blockHeight: number;
 }
@@ -49,7 +50,7 @@ export interface MemoCoinSource {
 
 /** A live memory: the coin that anchors it and the memo it carries. */
 export interface LiveCoin {
-  readonly outpoint: { readonly txid: string; readonly outIdx: number };
+  readonly outpoint: Outpoint;
   readonly sats: bigint;
   readonly memo: Memo;
   readonly blockHeight: number;
