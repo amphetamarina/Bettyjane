@@ -1,14 +1,17 @@
 # Bettyjane
 
-**A shared memory for a human and an AI agent, written in coins on a public
-blockchain.**
+**An experiment in giving an AI agent a persistent memory — and a readable trace of
+how it changes — written as coins on a public blockchain I happen to know well.**
 
-An LLM has amnesia. It forgets everything the moment a reply ends. Bettyjane gives
-the team a notebook so it doesn't have to — except the notebook is made of tiny
-coins on [eCash](https://e.cash) (XEC), and each coin is one memory.
+An LLM has amnesia: it forgets everything the moment a reply ends. Bettyjane is my
+experiment in giving the team a notebook so it doesn't have to, and in tracing how
+that memory changes over time. The notebook is made of tiny coins on
+[eCash](https://e.cash) (XEC), one coin per memory. I reached for eCash because it
+is a chain I know well — not because it is the only way to do this; the point was
+to see how AI memory and tracing feel when they live on a public ledger.
 
-See a live memory right now at **[bettyjane.marina.cash](https://bettyjane.marina.cash)**,
-no install needed.
+There's a live instance at **[bettyjane.marina.cash](https://bettyjane.marina.cash)**
+if you want to poke at one without installing anything.
 
 ## The idea in one picture
 
@@ -52,22 +55,22 @@ hooks) live outside it and call in.
 The full design — coin format, retrieval, capture/consolidate, the integration
 API, the road ahead — is in **[docs/SPEC.md](docs/SPEC.md)**.
 
-## Status
+## What works
 
-**1.0.0 — feature complete.** The library derives keys and addresses,
-observes funding, encodes/decodes the memo format, and mints and reads memory
-coins. The four verbs are implemented; notes too large for one coin are split
-across a [pointer chain](docs/coin-format.md) and reassembled on read. The
-two-function integration API (`loadMemory` / `saveMemory`), an off-chain embedding
-index, a dependency-free embedder, and `retrieveRelevant` give a small working set
-each turn. Any agent drives it through the **`bj` CLI** — `load`, `capture`,
-`consolidate`, `remember`, `forget`, `private`, `consensus`, `pin`, `unpin`,
-`inspect`, `init` — so it works across harnesses, not just Claude Code; the repo
-also installs as a Claude Code plugin exposing those verbs as skills. A web
-explorer shows the live memory. There is no npm package yet — consume it as a
-library or plugin from this repo.
+The library derives keys and addresses, observes funding, encodes and decodes the
+memo format, and mints and reads memory coins. The four verbs are implemented;
+notes too large for one coin are split across a [pointer chain](docs/coin-format.md)
+and reassembled on read. A two-function integration API (`loadMemory` /
+`saveMemory`), an off-chain embedding index, a dependency-free embedder, and
+`retrieveRelevant` give a small working set each turn. Any agent drives it through
+the **`bj` CLI** — `load`, `capture`, `consolidate`, `remember`, `forget`,
+`private`, `consensus`, `pin`, `unpin`, `inspect`, `init` — so it works across
+harnesses, not just Claude Code; the repo also installs as a Claude Code plugin
+exposing those verbs as skills. A web explorer shows the live memory. This is a
+personal experiment, not a packaged product: there is no npm release — consume it
+as a library or plugin from this repo.
 
-Five capabilities layer on the coin format, each backward compatible with
+A handful of things build on the coin format, each backward compatible with
 existing coins (see [coin-format.md](docs/coin-format.md); run them with
 [`examples/features.ts`](examples/features.ts)):
 
@@ -117,9 +120,8 @@ verbs. Use `--network testnet` for test coins.
 
 ## Explorer (web)
 
-Live at **[bettyjane.marina.cash](https://bettyjane.marina.cash)**. Open it and
-you are looking at the memory as it stands right now, no install required. It is a
-read-only window with two views, like two ways of looking at the same table of
+There's a hosted instance at **[bettyjane.marina.cash](https://bettyjane.marina.cash)**
+— a read-only window with two views, like two ways of looking at the same table of
 coins:
 
 - **Explore** is one team's table. Type an agent address and a human address and
@@ -128,10 +130,10 @@ coins:
   their own. Signed, encrypted, and 2-of-2 consensus coins each get a little badge,
   and a **show forgotten** toggle opens the whole album, every memory ever minted,
   including the ones that were later picked back up (spent).
-- **Discover** is everybody's table at once. It pools every memory minted under
-  the `BJNE` tag across the whole chain, no matter who wrote it, and labels each
-  one with the address that authored it. A public feed of what every Bettyjane
-  agent is remembering.
+- **Discover** is every table at once. It pools every memory minted under the
+  `BJNE` tag across the chain, no matter who wrote it, and labels each one with the
+  address that authored it — a way to see whatever has been written with this tool,
+  mine or anyone else's who has tried it.
 
 Want your own copy? It is the same code that runs the hosted site:
 
