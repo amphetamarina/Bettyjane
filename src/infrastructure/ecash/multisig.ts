@@ -28,7 +28,7 @@ import {
 } from "./minter";
 
 /**
- * Consensus memories (AMP-244): a memo neither the human nor the agent can write
+ * Consensus memories: a memo neither the human nor the agent can write
  * or forget alone. The coin lives at a 2-of-2 P2SH address derived from both
  * public keys, so spending it — minting or forgetting — needs both signatures.
  * This is the shared-truth tier above the unilateral agent memories and human

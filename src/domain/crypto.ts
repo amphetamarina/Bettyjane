@@ -2,7 +2,7 @@ import { secp256k1 } from "@noble/curves/secp256k1.js";
 import { createCipheriv, createDecipheriv, hkdfSync, randomBytes } from "node:crypto";
 
 /**
- * ECIES over secp256k1 for private memories (AMP-242): encrypt a note to a
+ * ECIES over secp256k1 for private memories: encrypt a note to a
  * recipient's public key so it can live on the public chain unreadable to
  * everyone but the holder of the matching secret key. The scheme is built from
  * audited primitives — never a hand-rolled cipher:

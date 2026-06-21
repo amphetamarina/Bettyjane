@@ -95,16 +95,16 @@ The coin stays tiny and the content can be larger. Full detail is in
 **Extensions on the format.** Four capabilities layer on top, each backward
 compatible with v1 coins (full detail in [coin-format.md](coin-format.md)):
 
-- **Author signatures (v2, AMP-239).** A 65-byte recoverable ECDSA signature over
+- **Author signatures (v2).** A 65-byte recoverable ECDSA signature over
   `sha256(LOKAD ‖ header ‖ payload)`; the verifier recovers the signer and matches
   it to the coin's address. The reader exposes `authorVerified`.
-- **Namespaces (AMP-243).** A namespace is the BIP-44 address index, partitioning
+- **Namespaces.** A namespace is the BIP-44 address index, partitioning
   an author's memory into separate watchable addresses; the default namespace is
   the original address.
-- **eMPP batching (AMP-240).** Several memos ride in one `OP_RETURN` as eMPP
+- **eMPP batching.** Several memos ride in one `OP_RETURN` as eMPP
   sections with one dust coin each, so a turn's notes can share a transaction while
   each note stays independently forgettable.
-- **Encrypted memories (AMP-242).** An `encrypted` content type carries an ECIES
+- **Encrypted memories.** An `encrypted` content type carries an ECIES
   blob (secp256k1 ECDH + AES-256-GCM), readable only with the key; minted opt-in
   via `rememberPrivate`, shown as `[encrypted]` without the key.
 

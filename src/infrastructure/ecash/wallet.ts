@@ -28,7 +28,7 @@ const ACCOUNT_BY_AUTHOR: Record<Author, number> = { agent: 0, human: 1 };
 export const DEFAULT_NAMESPACE = "";
 
 /**
- * Map a namespace name to a BIP-44 address index (AMP-243). Namespaces partition
+ * Map a namespace name to a BIP-44 address index. Namespaces partition
  * an author's memory into separate, independently watchable addresses while
  * keeping the two-author split on the account level. The mapping is a pure
  * function of the name — no registry to keep in sync — so the same name always

@@ -15,7 +15,7 @@ export const LOKAD_ID = strToBytes("BJNE");
 export const PROTOCOL_VERSION = 1;
 
 /**
- * Version of a memo that carries an author signature over its content (AMP-239).
+ * Version of a memo that carries an author signature over its content.
  * A v2 memo appends one more push, a {@link SIGNATURE_BYTES}-byte recoverable
  * ECDSA signature, after the payload. v1 memos remain valid and unsigned.
  */

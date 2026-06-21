@@ -192,7 +192,7 @@ export class Minter {
   }
 
   /**
-   * Remember a note privately (AMP-242): encrypt `value` to `recipientPubkey`
+   * Remember a note privately: encrypt `value` to `recipientPubkey`
    * with ECIES and mint the ciphertext as an encrypted memory coin, so the note
    * lives on the public chain readable only by the holder of the matching secret
    * key. Encrypt to the author's own pubkey to remember-to-self.
@@ -276,7 +276,7 @@ export class Minter {
   }
 
   /**
-   * Mint several memos in one transaction via an eMPP batch (AMP-240): a single
+   * Mint several memos in one transaction via an eMPP batch: a single
    * OP_RETURN carries every memo as a section, and one dust coin is laid down per
    * section so each note stays an independently forgettable coin. The dust coins
    * sit at vouts 1..N, matching the section order. Throws if the memos do not fit
@@ -302,7 +302,7 @@ export class Minter {
   }
 
   /**
-   * Remember several notes with as few transactions as possible (AMP-240): pack
+   * Remember several notes with as few transactions as possible: pack
    * the notes into eMPP batches that each fit one OP_RETURN and mint one
    * transaction per batch, returning a result per transaction. Each note must fit
    * a single section ({@link MAX_PAYLOAD_BYTES}); a longer note throws — store it
@@ -346,7 +346,7 @@ export class Minter {
   }
 
   /**
-   * Encode a memo for its OP_RETURN, signing the content when it fits (AMP-239).
+   * Encode a memo for its OP_RETURN, signing the content when it fits.
    * An inline text note within {@link MAX_SIGNED_PAYLOAD_BYTES} is minted as a
    * signed v2 memo so its authorship is provable from the coin alone; pointer
    * heads and longer notes fall back to the unsigned v1 encoding.

@@ -60,7 +60,7 @@ export interface LiveCoin {
   readonly blockHeight: number;
   readonly confirmed: boolean;
   /**
-   * Whether the memo carries a valid author signature for this coin (AMP-239).
+   * Whether the memo carries a valid author signature for this coin.
    * True for a signed v2 memo whose recovered signer matches the coin's address;
    * false for an unsigned v1 memo or a signature that does not verify.
    */
@@ -205,7 +205,7 @@ export class MemoReader {
   }
 
   /**
-   * The memo a dust coin carries. A batched transaction (AMP-240) holds an eMPP
+   * The memo a dust coin carries. A batched transaction holds an eMPP
    * OP_RETURN at output 0 and one dust coin per section at outputs 1..N, so the
    * coin at outIdx k maps to section k-1. A single-memo transaction uses the lone
    * OP_RETURN. Batched sections are unsigned, so only single signed memos report

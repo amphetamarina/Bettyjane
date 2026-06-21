@@ -40,7 +40,7 @@ export function pin(content: MemoContent): Memo {
   return { kind: "pin", content };
 }
 
-/** A consensus memo: co-authored, held at a 2-of-2 address (AMP-244). */
+/** A consensus memo: co-authored, held at a 2-of-2 address. */
 export function consensus(content: MemoContent): Memo {
   return { kind: "consensus", content };
 }

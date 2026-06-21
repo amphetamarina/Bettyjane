@@ -40,7 +40,7 @@ const agent = wallet.signer("agent");
 const human = wallet.signer("human");
 const ecc = new Ecc();
 
-// 1. Content-signed memories (AMP-239) — authorship provable from the coin alone.
+// 1. Content-signed memories — authorship provable from the coin alone.
 line("content-signed memories");
 {
   const memo = memory(text("the build is green"));
@@ -52,7 +52,7 @@ line("content-signed memories");
   // On chain (signs inline text automatically): await minter.remember("the build is green", agent)
 }
 
-// 2. Memory namespaces (AMP-243) — partition memory into watchable addresses.
+// 2. Memory namespaces — partition memory into watchable addresses.
 line("memory namespaces");
 {
   console.log("default :", wallet.address("agent"));
@@ -62,7 +62,7 @@ line("memory namespaces");
   // On chain: mint to a namespace by deriving its signer — wallet.signer("agent", "billing")
 }
 
-// 3. eMPP batching (AMP-240) — a turn's notes in one transaction.
+// 3. eMPP batching — a turn's notes in one transaction.
 line("eMPP batching");
 {
   const notes = ["short note A", "short note B", "short note C"].map((t) => memory(text(t)));
@@ -72,7 +72,7 @@ line("eMPP batching");
   // On chain: await minter.rememberBatch(["short note A", "short note B", "short note C"], agent)
 }
 
-// 4. Encrypted private memories (AMP-242) — ciphertext on a public chain.
+// 4. Encrypted private memories — ciphertext on a public chain.
 line("encrypted private memories");
 {
   const secret = "rotate the staging token monthly";
@@ -83,7 +83,7 @@ line("encrypted private memories");
   // On chain: await minter.rememberPrivate("rotate the staging token monthly", agent.pubkey, agent)
 }
 
-// 5. Consensus memories (AMP-244) — a 2-of-2 neither key can write alone.
+// 5. Consensus memories — a 2-of-2 neither key can write alone.
 line("2-of-2 consensus memories");
 {
   const address = consensusAddress([agent.pubkey, human.pubkey], "ectest");

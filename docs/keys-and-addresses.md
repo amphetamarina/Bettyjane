@@ -22,7 +22,7 @@ Each account derives a compressed secp256k1 public key, whose `HASH160`
 (`RIPEMD160(SHA256(pubkey))`) becomes a standard P2PKH **cashaddr** — the agent's
 *memory address* and the human's *pin address*.
 
-## Namespaces (AMP-243)
+## Namespaces
 
 A namespace partitions an author's memory into separate, independently watchable
 addresses — one per project or topic, say — without changing the two-author

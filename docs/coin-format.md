@@ -62,7 +62,7 @@ is ambiguous to parse. A 3-byte push never collapses.
   `MAX_POINTER_CHUNKS = floor(211 / 32) = 6` txids, so the longest storable
   memory is `MAX_MEMORY_BYTES = 6 × 211 = 1266` bytes.
 
-### Author signatures (v2, AMP-239)
+### Author signatures (v2)
 
 A coin's *ownership* already proves who can spend it, but that proof only holds in
 the spend transaction. A memo read out of context — copied from a block explorer,
@@ -91,7 +91,7 @@ and `POINTER` heads fall back to the unsigned v1 encoding. v1 coins remain valid
 and decode unchanged — `decodeMemo` accepts both versions and drops the signature;
 `decodeSignedMemo` / `verifyMemoAuthor` expose and check it.
 
-### Consensus memories (2-of-2, AMP-244)
+### Consensus memories (2-of-2)
 
 Above the unilateral agent memories and human pins sits a shared-truth tier: a
 **consensus memory** that neither key can write or forget alone. Its coin lives
@@ -113,7 +113,7 @@ made together rather than handed between machines. A cross-machine PSBT handoff 
 where the human and agent run on different hosts — is a later refinement; the
 on-chain coin is identical either way.
 
-### Encrypted private memories (AMP-242)
+### Encrypted private memories
 
 The chain is public, so the capture policy is to never write a secret. Encryption
 turns that from *exclude* into *protect*: a note can live on chain as ciphertext
@@ -143,7 +143,7 @@ is a follow-up).
 This is **opt-in** — `rememberPrivate` is an explicit call, not wired into the
 automatic capture path, so nothing is encrypted to the chain without intent.
 
-### Batching a turn's notes with eMPP (AMP-240)
+### Batching a turn's notes with eMPP
 
 A substantive turn can yield several notes. Rather than one transaction per note,
 they can ride in a single transaction using an **eCash Multipurpose Payload
@@ -168,7 +168,7 @@ other eCash protocols. Batched sections are **unsigned (v1)**; signing batched
 sections (combining with the v2 signature) is a follow-up, so the live capture
 path still mints signed single memos for now.
 
-### The large-content pointer scheme (AMP-208)
+### The large-content pointer scheme
 
 `remember(text)` chooses the representation by size, transparently:
 

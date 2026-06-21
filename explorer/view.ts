@@ -15,7 +15,7 @@ export interface MemoryView {
   readonly kind: MemoKind;
   readonly author: Author;
   readonly confirmed: boolean;
-  /** Whether the coin's memo carries a valid author signature (AMP-239). */
+  /** Whether the coin's memo carries a valid author signature. */
   readonly authorVerified: boolean;
   /** Whether the coin has been spent (the memory was forgotten); only set in the history view. */
   readonly spent: boolean;

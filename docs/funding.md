@@ -3,7 +3,7 @@
 Before the agent can write, its **memory address** (the agent account from
 [keys and addresses](./keys-and-addresses.md)) must hold spendable XEC: every
 memory coin carries dust, and every write pays a fee. Funding is the first half
-of bootstrap ([AMP-203](https://linear.app/amphetamarina/issue/AMP-203)).
+of bootstrap.
 
 This module does not *send* the funds — that happens out of band, from your own
 wallet or a testnet faucet, to the address `wallet.address("agent")`. What it

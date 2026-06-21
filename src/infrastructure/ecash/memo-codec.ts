@@ -28,7 +28,7 @@ import {
 } from "./protocol.js";
 import { MalformedMemoError, MemoTooLargeError, UnsupportedVersionError } from "./errors.js";
 
-/** A decoded memo together with its on-chain author signature, if any (AMP-239). */
+/** A decoded memo together with its on-chain author signature, if any. */
 export interface SignedMemo {
   readonly memo: Memo;
   /** The recoverable ECDSA signature carried by a v2 memo, or null for unsigned v1. */
@@ -56,7 +56,7 @@ export function encodeMemo(memo: Memo): Script {
 }
 
 /**
- * Encode a memo with an author signature over its content (AMP-239). The result
+ * Encode a memo with an author signature over its content. The result
  * is a v2 script: the v1 layout plus a trailing {@link SIGNATURE_BYTES}-byte
  * push. The signature must be over {@link signingDigest}(memo). Inline payloads
  * are capped at {@link MAX_SIGNED_PAYLOAD_BYTES} to leave room for the signature.
@@ -88,7 +88,7 @@ export function signingDigest(memo: Memo): Uint8Array {
 
 /**
  * Encode several memos into one eCash Multipurpose Payload (eMPP) OP_RETURN so a
- * whole turn's notes ride in a single transaction (AMP-240). Each memo becomes
+ * whole turn's notes ride in a single transaction. Each memo becomes
  * one eMPP section: `LOKAD ++ [version, kind, contentType] ++ payload`. The
  * transaction lays one dust coin per section, so each note stays an
  * independently forgettable coin. Batched sections are unsigned (v1).
