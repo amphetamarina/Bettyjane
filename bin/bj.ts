@@ -3,12 +3,15 @@ import "ecash-lib/dist/initNodeJs.js";
 import {
   ConsensusMinter,
   DEFAULT_NAMESPACE,
+  DUST_SATS,
   HashEmbedder,
   type LiveCoin,
   type LoadedMemory,
   MAX_MEMORY_BYTES,
+  MalformedMemoError,
   MemoReader,
   Minter,
+  UnsupportedVersionError,
   type VectoredMemory,
   assessFunding,
   coinId,
@@ -16,6 +19,7 @@ import {
   decodeMemoHex,
   loadMemory,
   loadWallet,
+  networkConfig,
   planConsolidation,
   sequentialMinter,
   text,
@@ -23,9 +27,6 @@ import {
   type Network,
 } from "../src/index";
 import { ChronikClient } from "chronik-client";
-import { networkConfig } from "../src/infrastructure/ecash/network";
-import { DUST_SATS } from "../src/infrastructure/ecash/protocol";
-import { MalformedMemoError, UnsupportedVersionError } from "../src/infrastructure/ecash/errors";
 import { renderTurn } from "../capture/turn";
 import { distill } from "../capture/distiller";
 
