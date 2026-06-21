@@ -1,5 +1,5 @@
-import type { Network } from "../src/infrastructure/ecash/network";
-import { fetchDiscover } from "../explorer/discover";
+import type { Network } from "../src/infrastructure/ecash/network.js";
+import { fetchDiscover } from "../explorer/discover.js";
 
 /**
  * Vercel serverless endpoint: GET /api/discover?network=<net>. Read-only.

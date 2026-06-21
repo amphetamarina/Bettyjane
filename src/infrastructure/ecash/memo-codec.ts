@@ -12,7 +12,7 @@ import {
   shaRmd160,
   strToBytes,
 } from "ecash-lib";
-import type { Memo, MemoContent } from "../../domain/memo";
+import type { Memo, MemoContent } from "../../domain/memo.js";
 import {
   LOKAD_ID,
   MAX_PAYLOAD_BYTES,
@@ -25,8 +25,8 @@ import {
   codeToKind,
   contentTypeToCode,
   kindToCode,
-} from "./protocol";
-import { MalformedMemoError, MemoTooLargeError, UnsupportedVersionError } from "./errors";
+} from "./protocol.js";
+import { MalformedMemoError, MemoTooLargeError, UnsupportedVersionError } from "./errors.js";
 
 /** A decoded memo together with its on-chain author signature, if any. */
 export interface SignedMemo {

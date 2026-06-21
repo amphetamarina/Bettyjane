@@ -1,11 +1,11 @@
 import { Ecc, Script, fromHex, toHex } from "ecash-lib";
 import { ChronikClient } from "chronik-client";
-import type { Memo } from "../../domain/memo";
-import type { Outpoint } from "../../domain/coin-id";
-import { decodeMemo, decodeMemoBatch, verifyMemoAuthor } from "./memo-codec";
-import { DUST_SATS, TXID_BYTES } from "./protocol";
-import { MalformedMemoError } from "./errors";
-import { networkConfig, type Network, type NetworkConfig } from "./network";
+import type { Memo } from "../../domain/memo.js";
+import type { Outpoint } from "../../domain/coin-id.js";
+import { decodeMemo, decodeMemoBatch, verifyMemoAuthor } from "./memo-codec.js";
+import { DUST_SATS, TXID_BYTES } from "./protocol.js";
+import { MalformedMemoError } from "./errors.js";
+import { networkConfig, type Network, type NetworkConfig } from "./network.js";
 
 /**
  * The read half: the unspent dust coins at an address are the live memory.
