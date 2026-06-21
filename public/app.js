@@ -21,6 +21,38 @@ const els = {
   discoverStack: document.getElementById("discover-stack"),
 };
 
+function make(tagName, className, text) {
+  const node = document.createElement(tagName);
+  if (className) node.className = className;
+  if (text !== undefined) node.textContent = text;
+  return node;
+}
+
+function tag(name, label) {
+  return make("span", `tag ${name}`, label);
+}
+
+function txLink(href, text) {
+  const link = make("a", null, text);
+  link.href = href;
+  link.target = "_blank";
+  link.rel = "noreferrer";
+  return link;
+}
+
+async function fetchJson(url) {
+  const response = await fetch(url);
+  const body = await response.text();
+  let data;
+  try {
+    data = JSON.parse(body);
+  } catch {
+    throw new Error(body.trim().slice(0, 140) || `HTTP ${response.status}`);
+  }
+  if (!response.ok) throw new Error(data.error || `HTTP ${response.status}`);
+  return data;
+}
+
 function loadConfig() {
   const params = new URLSearchParams(location.search);
   let saved = {};
@@ -59,26 +91,19 @@ function currentConfig() {
 async function fetchAddress(address, network, showSpent) {
   const query = new URLSearchParams({ address, network });
   if (showSpent) query.set("all", "1");
-  const response = await fetch(`/api/memories?${query.toString()}`);
-  const body = await response.text();
-  let data;
-  try {
-    data = JSON.parse(body);
-  } catch {
-    throw new Error(body.trim().slice(0, 140) || `HTTP ${response.status}`);
-  }
-  if (!response.ok) throw new Error(data.error || `HTTP ${response.status}`);
-  return data.memories;
+  return (await fetchJson(`/api/memories?${query.toString()}`)).memories;
+}
+
+async function fetchDiscover(network) {
+  const query = new URLSearchParams({ network });
+  return (await fetchJson(`/api/discover?${query.toString()}`)).memories;
 }
 
 function renderColumn(stack, countEl, address, network, label, showSpent) {
   if (!address) {
     stack.innerHTML = "";
     countEl.textContent = "";
-    const empty = document.createElement("div");
-    empty.className = "empty";
-    empty.textContent = `Enter an address to see ${label}.`;
-    stack.append(empty);
+    stack.append(make("div", "empty", `Enter an address to see ${label}.`));
     return Promise.resolve(0);
   }
   return fetchAddress(address, network, showSpent)
@@ -89,10 +114,7 @@ function renderColumn(stack, countEl, address, network, label, showSpent) {
         ? `${live} live · ${memories.length} total · ${shorten(address)}`
         : `${memories.length} live · ${shorten(address)}`;
       if (memories.length === 0) {
-        const empty = document.createElement("div");
-        empty.className = "empty";
-        empty.textContent = `No ${label} at this address yet.`;
-        stack.append(empty);
+        stack.append(make("div", "empty", `No ${label} at this address yet.`));
       } else {
         for (const memory of memories) stack.append(card(memory));
       }
@@ -101,10 +123,7 @@ function renderColumn(stack, countEl, address, network, label, showSpent) {
     .catch((error) => {
       stack.innerHTML = "";
       countEl.textContent = "";
-      const div = document.createElement("div");
-      div.className = "error";
-      div.textContent = `Could not read the chain: ${error.message}`;
-      stack.append(div);
+      stack.append(make("div", "error", `Could not read the chain: ${error.message}`));
       return 0;
     });
 }
@@ -124,90 +143,66 @@ function shorten(address) {
   return body.length > 16 ? `${body.slice(0, 8)}…${body.slice(-6)}` : body;
 }
 
-function card(memory) {
-  const el = document.createElement("article");
-  el.className = `card ${memory.kind}${memory.spent ? " forgotten" : ""}`;
+function authorLabel(kind) {
+  if (kind === "consensus") return "team · 2-of-2 consensus";
+  if (kind === "pin") return "human · durable pin";
+  return "agent · working memory";
+}
 
-  const row = document.createElement("div");
-  row.className = "row";
+function statusRow(memory, { signed }) {
+  const row = make("div", "row");
   row.append(tag(memory.kind, memory.kind));
   if (memory.spent) row.append(tag("forgotten", "forgotten"));
   else row.append(tag(memory.confirmed ? "live" : "pending", memory.confirmed ? "live" : "pending"));
-  if (memory.authorVerified) row.append(tag("signed", "signed"));
+  if (signed && memory.authorVerified) row.append(tag("signed", "signed"));
   if (memory.content.type === "encrypted") row.append(tag("encrypted", "encrypted"));
-  const author = document.createElement("span");
-  author.className = "author";
-  author.textContent =
-    memory.kind === "consensus"
-      ? "team · 2-of-2 consensus"
-      : memory.kind === "pin"
-        ? "human · durable pin"
-        : "agent · working memory";
-  row.append(author);
+  return row;
+}
+
+function contentEl(content) {
+  if (content.type === "text") return make("div", "content", content.text);
+  if (content.type === "encrypted") return make("div", "content encrypted", "encrypted — readable only with the key");
+  const pointer = content.pointerHex ? `pointer ${content.pointerHex}` : "pointer (stored across multiple coins)";
+  return make("div", "content pointer", pointer);
+}
+
+function card(memory) {
+  const el = make("article", `card ${memory.kind}${memory.spent ? " forgotten" : ""}`);
+
+  const row = statusRow(memory, { signed: true });
+  row.append(make("span", "author", authorLabel(memory.kind)));
   el.append(row);
 
-  const content = document.createElement("div");
-  if (memory.content.type === "text") {
-    content.className = "content";
-    content.textContent = memory.content.text;
-  } else if (memory.content.type === "encrypted") {
-    content.className = "content encrypted";
-    content.textContent = "encrypted — readable only with the key";
-  } else {
-    content.className = "content pointer";
-    content.textContent = `pointer ${memory.content.pointerHex}`;
-  }
-  el.append(content);
-
+  el.append(contentEl(memory.content));
   if (memory.content.type === "text" && memory.content.viaPointer) {
-    const note = document.createElement("div");
-    note.className = "viapointer";
-    note.textContent = "↳ stored across multiple coins";
-    el.append(note);
+    el.append(make("div", "viapointer", "↳ stored across multiple coins"));
   }
 
-  const meta = document.createElement("div");
-  meta.className = "meta";
-  const outpoint = document.createElement("span");
-  outpoint.className = "outpoint";
-  outpoint.textContent = memory.outpoint;
-  meta.append(outpoint, document.createTextNode(` · ${memory.sats} sats`));
+  const meta = make("div", "meta");
+  meta.append(make("span", "outpoint", memory.outpoint), document.createTextNode(` · ${memory.sats} sats`));
   if (memory.explorerUrl) {
-    meta.append(document.createTextNode(" · "));
-    const link = document.createElement("a");
-    link.href = memory.explorerUrl;
-    link.target = "_blank";
-    link.rel = "noreferrer";
-    link.textContent = "view tx";
-    meta.append(link);
+    meta.append(document.createTextNode(" · "), txLink(memory.explorerUrl, "view tx"));
   }
   el.append(meta);
 
   return el;
 }
 
-function tag(kind, label) {
-  const el = document.createElement("span");
-  el.className = `tag ${kind}`;
-  el.textContent = label;
+function discoverCard(memory) {
+  const el = make("article", `card ${memory.kind}${memory.spent ? " forgotten" : ""}`);
+
+  const who = make("div", "who");
+  who.append(memory.explorerUrl ? txLink(memory.explorerUrl, memory.address) : document.createTextNode(memory.address));
+  el.append(who);
+
+  el.append(statusRow(memory, { signed: false }));
+  el.append(contentEl(memory.content));
+
   return el;
 }
 
 function timestamp() {
   return new Date().toLocaleTimeString();
-}
-
-async function fetchDiscover(network) {
-  const response = await fetch(`/api/discover?${new URLSearchParams({ network }).toString()}`);
-  const body = await response.text();
-  let data;
-  try {
-    data = JSON.parse(body);
-  } catch {
-    throw new Error(body.trim().slice(0, 140) || `HTTP ${response.status}`);
-  }
-  if (!response.ok) throw new Error(data.error || `HTTP ${response.status}`);
-  return data.memories;
 }
 
 async function refreshDiscover() {
@@ -221,62 +216,14 @@ async function refreshDiscover() {
     els.discoverCount.textContent = `${memories.length} memories · ${live} live · ${addresses} address(es) · ${network}`;
     els.discoverStack.innerHTML = "";
     if (memories.length === 0) {
-      const empty = document.createElement("div");
-      empty.className = "empty";
-      empty.textContent = "No Bettyjane memories found on this network yet.";
-      els.discoverStack.append(empty);
+      els.discoverStack.append(make("div", "empty", "No Bettyjane memories found on this network yet."));
     } else {
       for (const memory of memories) els.discoverStack.append(discoverCard(memory));
     }
   } catch (error) {
     els.discoverCount.textContent = "";
-    const div = document.createElement("div");
-    div.className = "error";
-    div.textContent = `Could not read the chain: ${error.message}`;
-    els.discoverStack.append(div);
+    els.discoverStack.append(make("div", "error", `Could not read the chain: ${error.message}`));
   }
-}
-
-function discoverCard(memory) {
-  const el = document.createElement("article");
-  el.className = `card ${memory.kind}${memory.spent ? " forgotten" : ""}`;
-
-  const who = document.createElement("div");
-  who.className = "who";
-  if (memory.explorerUrl) {
-    const link = document.createElement("a");
-    link.href = memory.explorerUrl;
-    link.target = "_blank";
-    link.rel = "noreferrer";
-    link.textContent = memory.address;
-    who.append(link);
-  } else {
-    who.textContent = memory.address;
-  }
-  el.append(who);
-
-  const row = document.createElement("div");
-  row.className = "row";
-  row.append(tag(memory.kind, memory.kind));
-  if (memory.spent) row.append(tag("forgotten", "forgotten"));
-  else row.append(tag(memory.confirmed ? "live" : "pending", memory.confirmed ? "live" : "pending"));
-  if (memory.content.type === "encrypted") row.append(tag("encrypted", "encrypted"));
-  el.append(row);
-
-  const content = document.createElement("div");
-  if (memory.content.type === "text") {
-    content.className = "content";
-    content.textContent = memory.content.text;
-  } else if (memory.content.type === "encrypted") {
-    content.className = "content encrypted";
-    content.textContent = "encrypted — readable only with the key";
-  } else {
-    content.className = "content pointer";
-    content.textContent = "pointer (stored across multiple coins)";
-  }
-  el.append(content);
-
-  return el;
 }
 
 function showView(view) {
