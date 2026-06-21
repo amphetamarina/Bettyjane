@@ -8,11 +8,10 @@ import { networkConfig, type Network } from "../src/infrastructure/ecash/network
 import { txExplorerUrl } from "./view.js";
 
 /**
- * Discover: the chain-wide pool of Bettyjane memories, across every agent and
- * human publishing under the `BJNE` LOKAD id — not just one watched address.
- * Chronik indexes transactions by LOKAD, so a single query returns every memo
- * tx; this decodes each into the memory it minted and the address that authored
- * it. Read-only and best-effort per tx.
+ * The chain-wide pool of memories under the `BJNE` LOKAD id, not just one
+ * address. Chronik indexes transactions by LOKAD, so one query returns every
+ * memo tx; each is decoded into the memory it minted and its author address.
+ * Read-only and best-effort per tx.
  */
 
 const BJNE_LOKAD = toHex(strToBytes("BJNE"));
@@ -25,7 +24,6 @@ export type DiscoveredContent =
   | { readonly type: "pointer" }
   | { readonly type: "encrypted" };
 
-/** One memory found by the chain-wide scan: which address authored it and what it carries. */
 export interface DiscoveredMemory {
   readonly address: string;
   readonly outpoint: string;
@@ -44,14 +42,13 @@ export interface DiscoverResult {
   readonly memories: DiscoveredMemory[];
 }
 
-/** One transaction from a LOKAD scan, with enough to reconstruct its memo coins. */
 export interface DiscoverTx {
   readonly txid: string;
   readonly blockHeight: number;
   readonly outputs: readonly { readonly scriptHex: string; readonly sats: bigint; readonly spent: boolean }[];
 }
 
-/** The read the discover scan needs: every transaction under a LOKAD id, newest first. */
+/** Returns every transaction under a LOKAD id, newest first. */
 export interface DiscoverSource {
   lokadTxs(lokadHex: string): Promise<readonly DiscoverTx[]>;
 }
@@ -95,7 +92,6 @@ export async function fetchDiscover(
   return { network, memories };
 }
 
-/** A discover source over a network's Chronik endpoints (LOKAD history). */
 export function chronikDiscoverSource(network: Network): DiscoverSource {
   const client = new ChronikClient([...networkConfig(network).chronikUrls]);
   return {

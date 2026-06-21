@@ -1,10 +1,3 @@
-/**
- * Funding is the precondition for writing: before the agent can mint a memory
- * coin, its memory address must hold enough spendable XEC to cover the coin's
- * dust plus the transaction fee. This module decides, in chain-agnostic terms,
- * whether an address is funded — given only a list of its spendable amounts.
- */
-
 /** One spendable output backing an address, reduced to what funding cares about. */
 export interface FundingCoin {
   readonly sats: bigint;

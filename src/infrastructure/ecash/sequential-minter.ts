@@ -11,18 +11,12 @@ import { networkConfig, type Network, type NetworkConfig } from "./network";
 import { DUST_SATS } from "./protocol";
 
 /**
- * Minting many memories back to back to one address hits the mempool's
- * txn-mempool-conflict rule: each {@link Minter.mint} re-reads the address's
- * UTXOs and picks the largest funding coin, but a just-broadcast change output
- * has not propagated yet, so the next mint re-selects the same coin and tries to
- * spend it twice. A whole turn's worth of captured notes fails this way.
- *
- * This wraps a base {@link CoinSource} and {@link Broadcaster} so that after each
- * broadcast the transaction's change output is threaded forward as the only
- * funding coin for the next mint. Consecutive mints therefore spend distinct,
- * known coins and never conflict — without waiting on chain propagation. The
- * minter always places change last, so this holds for every mint path: inline,
- * pointer-chain chunks, and eMPP batches.
+ * Minting back-to-back to one address hits the mempool's txn-mempool-conflict
+ * rule: the next mint re-selects the same funding coin before the previous
+ * change has propagated. This threads each broadcast's change forward as the
+ * only funding coin for the next mint, so consecutive mints spend distinct coins
+ * without waiting on propagation. Change is always last, so every mint path —
+ * inline, pointer chunks, eMPP batches — works.
  */
 export function changeThreadingMinter(
   baseCoins: CoinSource,
@@ -58,11 +52,7 @@ export function changeThreadingMinter(
   return new Minter(coins, broadcaster, options);
 }
 
-/**
- * A {@link changeThreadingMinter} backed by a network's Chronik endpoints — the
- * conflict-free minter to use when writing several memories in one run, such as a
- * turn's captured notes.
- */
+/** A {@link changeThreadingMinter} over a network's Chronik endpoints. */
 export function sequentialMinter(network?: Network | NetworkConfig, options: MinterOptions = {}): Minter {
   const config = typeof network === "object" ? network : networkConfig(network);
   const client = new ChronikClient([...config.chronikUrls]);

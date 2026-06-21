@@ -1,11 +1,4 @@
 /**
- * Splitting long memory text across coins. One OP_RETURN holds only a bounded
- * number of bytes, so text that does not fit inline is stored as an ordered set
- * of chunk transactions and reassembled by concatenation. This is the pure
- * split rule; the minter writes the chunks and the reader rejoins them.
- */
-
-/**
  * Split `value` into contiguous pieces, each at most `maxBytes` UTF-8 bytes,
  * that concatenate back to the original. A codepoint is never split across
  * pieces; the only way a piece exceeds the budget is a single codepoint larger

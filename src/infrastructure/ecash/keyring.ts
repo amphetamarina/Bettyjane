@@ -30,10 +30,9 @@ function parseNetwork(value: string | undefined): Network {
 }
 
 /**
- * Resolve the wallet from the environment so the CLI and hooks can sign without
- * a hardcoded key. {@link ENV_MNEMONIC} carries the BIP-39 phrase that recovers
- * both authors; {@link ENV_PASSPHRASE} and {@link ENV_NETWORK} are optional.
- * The network defaults to testnet, matching {@link DEFAULT_NETWORK}.
+ * {@link ENV_MNEMONIC} carries the BIP-39 phrase that recovers both authors;
+ * {@link ENV_PASSPHRASE} and {@link ENV_NETWORK} are optional. Network defaults
+ * to testnet.
  */
 export function loadWallet(env: Env = process.env): Wallet {
   const phrase = env[ENV_MNEMONIC]?.trim();

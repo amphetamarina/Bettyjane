@@ -1,9 +1,7 @@
 /**
- * The off-chain search index: a cache mapping each memory coin id to the
- * embedding vector of its text, queryable by similarity. It is a cache, not the
- * truth — the chain holds the memories, and the index can be rebuilt from them
- * whenever it is lost. This module is pure: it stores and compares vectors and
- * knows nothing about how they were produced or persisted.
+ * An off-chain similarity index over memory texts, keyed by coin id. It is a
+ * cache, not the source of truth: the chain holds the memories, and the index
+ * can be rebuilt from them whenever it is lost.
  */
 
 export type Vector = readonly number[];

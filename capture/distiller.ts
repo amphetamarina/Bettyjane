@@ -1,18 +1,7 @@
 /**
- * The distiller: turns one rendered turn into notes worth remembering by asking
- * a model. It is agnostic about which model CLI runs:
- *
- * - With no BJ_DISTILL_CMD set, it shells out to the `claude` CLI in print mode,
- *   reusing whatever auth Claude Code already has, and asks for a schema-validated
- *   JSON block (the most reliable path).
- * - With BJ_DISTILL_CMD set, it runs that command instead, piping the prompt on
- *   stdin and reading notes from stdout. Any headless agent CLI works — e.g.
- *   `BJ_DISTILL_CMD="opencode run"`, `"codex exec"`, `"grok"`, `"hermes"` — as
- *   long as it reads a prompt and writes text. parseNotes reads the reply
- *   leniently (JSON array, {remember:[...]}, a fenced block, or one note a line).
- *
- * Either way the prompt is the same model-agnostic instruction, so the notes are
- * consistent across models.
+ * Distills a turn into notes by asking a model. BJ_DISTILL_CMD, when set, names
+ * the CLI to run (prompt on stdin, notes on stdout); otherwise it shells out to
+ * `claude` and requests a schema-validated JSON block.
  */
 
 import { parseMemoryOps, parseNotes } from "./turn";
@@ -43,10 +32,6 @@ export interface DistillerOptions {
   readonly model?: string;
 }
 
-/**
- * Distill a turn into notes, using BJ_DISTILL_CMD when set and the bundled
- * `claude` path otherwise.
- */
 export async function distill(turnText: string, options: DistillerOptions): Promise<string[]> {
   const command = process.env.BJ_DISTILL_CMD?.trim();
   return command
@@ -54,7 +39,7 @@ export async function distill(turnText: string, options: DistillerOptions): Prom
     : distillViaClaude(turnText, options);
 }
 
-/** Backwards-compatible alias for the bundled `claude` path. */
+/** Backwards-compatible alias. */
 export const distillWithClaude = distill;
 
 async function distillViaCommand(

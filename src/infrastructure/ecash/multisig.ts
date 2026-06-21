@@ -28,19 +28,14 @@ import {
 } from "./minter";
 
 /**
- * Consensus memories: a memo neither the human nor the agent can write
- * or forget alone. The coin lives at a 2-of-2 P2SH address derived from both
- * public keys, so spending it — minting or forgetting — needs both signatures.
- * This is the shared-truth tier above the unilateral agent memories and human
- * pins; the 2-of-2 script is the enforcement, the CONSENSUS kind only labels it.
+ * Consensus memories: a coin at a 2-of-2 P2SH address derived from both pubkeys,
+ * so writing or forgetting needs both signatures. The 2-of-2 script is the
+ * enforcement; the CONSENSUS kind only labels it. Both keys come from one
+ * mnemonic, so the signatures are made together rather than handed over as a PSBT.
  *
- * Bettyjane derives both keys from one mnemonic, so the two signatures are made
- * together here rather than handed between machines as a PSBT. A cross-machine
- * PSBT handoff is a later refinement; the on-chain coin is identical either way.
- *
- * Note: eCash has P2SH20 only (20-byte script hash), so the address is a
- * hash160 of the redeem script. That is fine for a 2-of-2 between two known
- * keys; the collision concern that motivates P2SH32 does not apply here.
+ * eCash has P2SH20 only, so the address is a hash160 of the redeem script. That
+ * is fine for a 2-of-2 between two known keys; the P2SH32 collision concern does
+ * not apply.
  */
 
 const TWO_OF_TWO = 2;
@@ -98,11 +93,7 @@ export interface ConsensusMinterOptions {
   readonly ecc?: Ecc;
 }
 
-/**
- * Mints and forgets consensus memories at a 2-of-2 P2SH address. Reads spendable
- * coins from the same {@link CoinSource} the regular minter uses, but spends them
- * with both keys via {@link consensusSignatory}.
- */
+/** Mints and forgets consensus memories, spending the 2-of-2 coin with both keys. */
 export class ConsensusMinter {
   private readonly feePerKb: bigint;
   private readonly ecc: Ecc;

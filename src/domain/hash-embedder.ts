@@ -1,9 +1,6 @@
 /**
- * A dependency-free embedder: a hashing bag-of-words. It needs no model, no API
- * key, and no network — it tokenizes text and hashes each token into a fixed
- * vector, so two notes that share words land near each other under cosine
- * similarity. It is a coarse stand-in for a real embedding model: good enough to
- * rank memories by lexical overlap, not for deep semantic similarity.
+ * A dependency-free hashing bag-of-words embedder: no model, key, or network.
+ * A coarse stand-in that ranks by lexical overlap, not deep semantic similarity.
  */
 
 import type { Embedder, Vector } from "./embedding-index";
@@ -21,10 +18,8 @@ function hashToken(token: string): number {
 }
 
 /**
- * Embed text as an L2-normalized hashing bag-of-words: lowercase, split on
- * non-alphanumerics, and add 1 to the dimension each token hashes to. Empty or
- * word-free text yields the zero vector (no direction), which cosine similarity
- * treats as similar to nothing.
+ * Lowercase, split on non-alphanumerics, hash each token to a dimension, then
+ * L2-normalize. Word-free text yields the zero vector.
  */
 export function hashEmbed(value: string, dimensions: number = DEFAULT_DIMENSIONS): number[] {
   const vector = new Array<number>(dimensions).fill(0);

@@ -1,10 +1,3 @@
-/**
- * One place that ties an eCash network to the two things the rest of the code
- * needs from it: the cashaddr prefix that {@link Wallet} stamps onto addresses,
- * and the Chronik endpoints that {@link ChronikGateway} reads from. Endpoints
- * are sensible defaults, not law — operators override them per deployment.
- */
-
 export type Network = "mainnet" | "testnet" | "regtest";
 
 export interface NetworkConfig {
@@ -26,8 +19,7 @@ const DEFAULTS: Record<Network, NetworkConfig> = {
     prefix: "ectest",
     chronikUrls: ["https://chronik-testnet.fabien.cash"],
   },
-  // A private chain run on the developer's or CI's own machine; there is no
-  // public endpoint, so the default points at a locally bound in-node Chronik.
+  // No public endpoint for a private chain; default to a locally bound Chronik.
   regtest: {
     network: "regtest",
     prefix: "ecregtest",
@@ -42,7 +34,6 @@ export interface NetworkOverrides {
   readonly chronikUrls?: readonly string[];
 }
 
-/** Resolve a network to its config, optionally overriding the Chronik endpoints. */
 export function networkConfig(
   network: Network = DEFAULT_NETWORK,
   overrides: NetworkOverrides = {},

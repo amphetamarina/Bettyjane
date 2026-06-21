@@ -1,22 +1,17 @@
 #!/usr/bin/env bun
 /**
- * Bettyjane end-to-end loop on eCash testnet, using only the public API.
+ * End-to-end loop on eCash testnet using only the public API: derive/recover a
+ * wallet, wait for funding, then remember a note, read it back, and forget it.
+ * Forgetting sweeps the coin's value back to the same address, so funds recycle
+ * across runs (only fees are spent).
  *
- * It derives (or recovers) a wallet, waits for the agent address to be funded,
- * then exercises the agent verbs against the live chain: remember a note, read
- * the live memory back, then forget the note. Forgetting sweeps the coin's value
- * back to the same address, so the funds recycle across runs (only network fees
- * are spent).
+ * Honors BJ_NETWORK (default testnet) and optional BJ_CHRONIK_URL, so it can run
+ * against a local regtest node as well as testnet.
  *
- * It honors BJ_NETWORK (default testnet) and an optional BJ_CHRONIK_URL, so it
- * can run against a local regtest node as well as testnet.
- *
- * Funding is a manual step on testnet. The public faucet is browser-only and
- * frequently down, and the official cashtab-faucet is reCAPTCHA-gated, so
- * neither can be driven headlessly. Send testnet XEC (from a faucet or your own
- * wallet) to the address printed below; this script then waits for it to arrive.
- * For a self-contained run with no faucet, point it at a regtest node and
- * generate coins to the address yourself (see docs/testnet-and-e2e.md).
+ * Funding is manual on testnet: the public faucet is browser-only and the
+ * cashtab-faucet is reCAPTCHA-gated, so neither runs headlessly. Send testnet
+ * XEC to the address printed below. For a self-contained run, point at a regtest
+ * node and generate coins yourself (see docs/testnet-and-e2e.md).
  *
  * Usage:
  *   BJ_MNEMONIC="twelve word phrase ..." bun examples/full-loop.ts

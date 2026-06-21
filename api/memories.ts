@@ -3,13 +3,11 @@ import { fetchAddressMemories } from "../explorer/memories.js";
 
 /**
  * Vercel serverless endpoint: GET /api/memories?address=<ecash:...>&network=<net>.
- * Returns the same payload the local server does, so the static page is identical
- * whether it runs under `bun run watch` or a Vercel deploy. Read-only.
+ * Returns the same payload the local server does. Read-only.
  *
- * The req/res shapes are typed structurally to avoid a build-time dependency on
- * @vercel/node. The whole body is wrapped so that any failure — including an
- * unexpected one — comes back as JSON the page can render, never an opaque
- * platform HTML 500.
+ * req/res are typed structurally to avoid a build-time dependency on
+ * @vercel/node. The body is wrapped so any failure comes back as JSON the page
+ * can render, never an opaque platform HTML 500.
  */
 
 export type QueryValue = string | string[] | undefined;
@@ -29,12 +27,10 @@ interface ApiResponse {
 
 const NETWORKS: readonly Network[] = ["mainnet", "testnet", "regtest"];
 
-/** Coalesce a possibly-repeated query param to a single trimmed string. */
 function first(value: QueryValue): string {
   return ((Array.isArray(value) ? value[0] : value) ?? "").trim();
 }
 
-/** Pull the address, a whitelisted network (default mainnet), and the include-spent flag from a query. */
 export function parseMemoriesQuery(query: Record<string, QueryValue>): {
   address: string;
   network: Network;

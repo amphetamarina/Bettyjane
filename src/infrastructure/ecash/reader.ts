@@ -7,14 +7,9 @@ import { MalformedMemoError } from "./errors.js";
 import { networkConfig, type Network, type NetworkConfig } from "./network.js";
 
 /**
- * Reading the live memory: the unspent dust coins at an address are what the
- * team remembers now. This is the read half of the system. Spending a memo coin
- * (forgetting) removes it from this set; the chain keeps the history.
- *
- * Memo coins hold exactly {@link DUST_SATS}, so they are told apart from
- * funding/change coins by value alone — we only fetch a coin's transaction when
- * its value marks it as a candidate memory, and skip the foreign dust whose
- * transaction carries no Bettyjane memo.
+ * The read half: the unspent dust coins at an address are the live memory.
+ * Candidates are filtered by value ({@link DUST_SATS}) before their transaction
+ * is fetched, so foreign dust is skipped cheaply.
  */
 
 /** Chronik in mempool reports an unconfirmed UTXO's block height as this. */
@@ -59,11 +54,7 @@ export interface LiveCoin {
   readonly memo: Memo;
   readonly blockHeight: number;
   readonly confirmed: boolean;
-  /**
-   * Whether the memo carries a valid author signature for this coin.
-   * True for a signed v2 memo whose recovered signer matches the coin's address;
-   * false for an unsigned v1 memo or a signature that does not verify.
-   */
+  /** Valid v2 author signature whose recovered signer matches the coin's address. */
   readonly authorVerified: boolean;
 }
 
@@ -134,12 +125,9 @@ export class MemoReader {
   }
 
   /**
-   * Every memory ever minted at an address, live and forgotten — the full album,
-   * not just the coins on the table now. Reconstructed from the address's
-   * transaction history: each memo coin (a dust output carrying a Bettyjane memo)
-   * becomes a {@link HistoricalCoin} flagged `spent` if its coin has since been
-   * forgotten. Newest first. Bounded to the most recent {@link MAX_HISTORY_PAGES}
-   * pages of history.
+   * Every memory ever minted at an address, live and forgotten, newest first.
+   * Reconstructed from transaction history, with each coin flagged `spent` once
+   * forgotten. Bounded to the most recent {@link MAX_HISTORY_PAGES} pages.
    */
   async listAllCoins(address: string): Promise<HistoricalCoin[]> {
     if (!this.source.history) {
@@ -168,11 +156,8 @@ export class MemoReader {
   }
 
   /**
-   * The full text of a live memory. An inline text coin returns its text
-   * directly; a pointer coin names its chunk transactions, so this fetches each
-   * chunk in order and concatenates them back into the original note. The chunk
-   * transactions carry no live coin of their own — they are reachable only
-   * through the pointer.
+   * The full text of a live memory. Inline text is returned directly; a pointer
+   * coin's chunk transactions are fetched in order and concatenated.
    */
   async resolveText(coin: LiveCoin): Promise<string> {
     if (coin.memo.content.type === "text") return coin.memo.content.text;
@@ -205,11 +190,9 @@ export class MemoReader {
   }
 
   /**
-   * The memo a dust coin carries. A batched transaction holds an eMPP
-   * OP_RETURN at output 0 and one dust coin per section at outputs 1..N, so the
-   * coin at outIdx k maps to section k-1. A single-memo transaction uses the lone
-   * OP_RETURN. Batched sections are unsigned, so only single signed memos report
-   * authorVerified.
+   * The memo a dust coin carries. In a batched transaction the coin at outIdx k
+   * maps to eMPP section k-1; a single-memo transaction uses the lone OP_RETURN.
+   * Batched sections are unsigned, so only single memos can report authorVerified.
    */
   private memoForCoin(
     scripts: readonly Script[],

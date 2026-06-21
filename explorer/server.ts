@@ -1,18 +1,12 @@
 #!/usr/bin/env bun
 /**
- * bj explorer — a tiny local web view of the live memory at one or two addresses.
+ * bj explorer — a local web view of the live memory at one or two addresses.
  *
  * Usage:
  *   bun run watch [agent-address] [--human <pin-address>] [--network <net>] [--port <n>]
- *   bun explorer/server.ts ecash:qq3u... --human ecash:qpry... -n mainnet
  *
- * It serves a static page whose inputs name the agent (memory) and human (pin)
- * addresses; the page polls /api/memories?address=&network= for each and renders
- * every unspent memo coin. Any address given on the command line just pre-fills
- * those inputs. Read-only: it never mints or spends.
- *
- * The page and the serverless function in api/ share explorer/memories.ts, so the
- * local server and a Vercel deploy render identically.
+ * Read-only. Shares explorer/memories.ts with the serverless function in api/,
+ * so the local server and a Vercel deploy render identically.
  */
 
 import { join } from "node:path";

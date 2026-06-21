@@ -2,11 +2,9 @@ import type { Network } from "../src/infrastructure/ecash/network.js";
 import { fetchDiscover } from "../explorer/discover.js";
 
 /**
- * Vercel serverless endpoint: GET /api/discover?network=<net>. Returns the
- * chain-wide pool of Bettyjane memories — every address publishing under the
- * BJNE LOKAD id — so the explorer's Discover view can show all agents at once.
- * Read-only; mirrors api/memories.ts so the page treats both identically and any
- * failure comes back as JSON, never an opaque platform 500.
+ * Vercel serverless endpoint: GET /api/discover?network=<net>. Read-only.
+ * Mirrors api/memories.ts; wraps the body so any failure comes back as JSON,
+ * never an opaque platform 500.
  */
 
 export type QueryValue = string | string[] | undefined;

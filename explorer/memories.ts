@@ -9,22 +9,15 @@ export interface AddressMemories {
 }
 
 /**
- * Read every live memo coin at an address and shape it for the page. Pointer
- * coins are resolved to their full text; a chunk that won't resolve falls back
- * to the raw pointer hex. This is the one read path shared by the local server
- * and the serverless API so both render identically. The reader is injectable
- * for tests; by default it talks to the network's Chronik endpoints.
+ * Read the memo coins at an address and shape them for the page, latest first
+ * (mempool coins, then confirmed by descending block height). Pointer coins are
+ * resolved to full text, falling back to the raw pointer hex on failure. With
+ * `includeSpent`, returns every memory ever minted, each flagged `spent` if
+ * since forgotten (reconstructed from transaction history).
  *
- * The imports are the narrow reader/network modules rather than the src/index
- * barrel on purpose: the serverless bundle then excludes the wallet, minter, and
- * keyring (and their key/wasm code), which keeps the read-only function small.
- *
- * Memories come back latest first: just-minted mempool coins lead, then
- * confirmed coins by descending block height, so the freshest memory is on top.
- *
- * With `includeSpent`, it returns the whole album instead of just the live set:
- * every memory ever minted at the address, each flagged `spent` if it has since
- * been forgotten (reconstructed from the address's transaction history).
+ * Imports the narrow reader/network modules rather than the src/index barrel on
+ * purpose: the serverless bundle then excludes the wallet, minter, and keyring
+ * (and their key/wasm code), keeping the read-only function small.
  */
 export async function fetchAddressMemories(
   address: string,

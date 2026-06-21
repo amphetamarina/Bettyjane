@@ -56,10 +56,9 @@ export function encodeMemo(memo: Memo): Script {
 }
 
 /**
- * Encode a memo with an author signature over its content. The result
- * is a v2 script: the v1 layout plus a trailing {@link SIGNATURE_BYTES}-byte
- * push. The signature must be over {@link signingDigest}(memo). Inline payloads
- * are capped at {@link MAX_SIGNED_PAYLOAD_BYTES} to leave room for the signature.
+ * The v1 layout plus a trailing {@link SIGNATURE_BYTES}-byte push of a signature
+ * over {@link signingDigest}(memo). Payloads are capped at
+ * {@link MAX_SIGNED_PAYLOAD_BYTES} to leave room for it.
  */
 export function encodeSignedMemo(memo: Memo, signature: Uint8Array): Script {
   const payload = payloadOf(memo.content);
@@ -87,15 +86,10 @@ export function signingDigest(memo: Memo): Uint8Array {
 }
 
 /**
- * Encode several memos into one eCash Multipurpose Payload (eMPP) OP_RETURN so a
- * whole turn's notes ride in a single transaction. Each memo becomes
- * one eMPP section: `LOKAD ++ [version, kind, contentType] ++ payload`. The
- * transaction lays one dust coin per section, so each note stays an
- * independently forgettable coin. Batched sections are unsigned (v1).
- *
- * Throws {@link MemoTooLargeError} if the sections do not fit eCash's
- * {@link OP_RETURN_MAX_BYTES} standardness limit; pack with {@link batchMemos}
- * to avoid this.
+ * Encode several memos as eMPP sections in one OP_RETURN, each
+ * `LOKAD ++ [version, kind, contentType] ++ payload` and unsigned (v1). Throws
+ * {@link MemoTooLargeError} past the {@link OP_RETURN_MAX_BYTES} limit; pack with
+ * {@link batchMemos} to avoid it.
  */
 export function encodeMemoBatch(memos: readonly Memo[]): Script {
   if (memos.length === 0) throw new MalformedMemoError("a memo batch needs at least one memo");
@@ -108,11 +102,9 @@ export function encodeMemoBatch(memos: readonly Memo[]): Script {
 }
 
 /**
- * Decode an eMPP batch OP_RETURN into its Bettyjane memos, in section order.
- * Returns null when the script is not an eMPP OP_RETURN or carries no Bettyjane
- * section. Foreign eMPP sections (a different LOKAD) are skipped so Bettyjane can
- * share a transaction with other protocols. Throws on a malformed Bettyjane
- * section.
+ * Decode an eMPP OP_RETURN into its Bettyjane memos, in section order. Foreign
+ * sections (a different LOKAD) are skipped so Bettyjane can share a transaction;
+ * returns null when none are ours. Throws on a malformed Bettyjane section.
  */
 export function decodeMemoBatch(script: Script): Memo[] | null {
   let sections: Uint8Array[] | undefined;
@@ -127,10 +119,8 @@ export function decodeMemoBatch(script: Script): Memo[] | null {
 }
 
 /**
- * Greedily pack memos into batches that each fit one eMPP OP_RETURN. Returns a
- * list of batches, preserving order, so a caller can mint one transaction per
- * batch. A single memo that cannot fit a batch on its own is returned as a
- * one-memo batch (the caller decides how to mint it).
+ * Greedily pack memos into order-preserving batches that each fit one eMPP
+ * OP_RETURN. A memo too large to share a batch is returned on its own.
  */
 export function batchMemos(memos: readonly Memo[]): Memo[][] {
   const batches: Memo[][] = [];
@@ -155,21 +145,17 @@ function fitsBatch(memos: Memo[]): boolean {
 }
 
 /**
- * Decode a coin's output script. Returns null when the script is not a
- * Bettyjane memo (not OP_RETURN, or a foreign protocol prefix), so address
- * scans can skip foreign coins cheaply. Throws when the prefix is ours but the
- * rest is malformed or an unsupported version. A v2 (signed) memo decodes to the
- * same content as v1; the signature is dropped — use {@link decodeSignedMemo} to
- * recover it.
+ * Decode a coin's output script, or null when it is not a Bettyjane memo (so
+ * scans skip foreign coins cheaply). Throws when the prefix is ours but the rest
+ * is malformed. The signature is dropped — use {@link decodeSignedMemo} to keep it.
  */
 export function decodeMemo(script: Script): Memo | null {
   return parse(script)?.memo ?? null;
 }
 
 /**
- * Decode a memo along with its author signature and the digest that signature is
- * over. Returns null for a non-memo script. For an unsigned v1 memo the
- * signature is null. See {@link verifyMemoAuthor} to check the signature.
+ * Decode a memo with its signature and the digest it is over, or null for a
+ * non-memo script. An unsigned v1 memo has a null signature.
  */
 export function decodeSignedMemo(script: Script): SignedMemo | null {
   const parsed = parse(script);
@@ -182,11 +168,9 @@ export function decodeSignedMemo(script: Script): SignedMemo | null {
 }
 
 /**
- * Whether a memo script carries a valid author signature for the coin held at
- * `ownerScript` (the memo coin's own P2PKH output script). Recovers the signing
- * pubkey from the signature and checks its hash160 equals the owner's pubkey
- * hash. Returns false for an unsigned memo, a non-P2PKH owner, or any signature
- * that fails to recover or match.
+ * Whether the memo's signature recovers to the pubkey hash in `ownerScript` (the
+ * memo coin's own P2PKH script). False for an unsigned memo, a non-P2PKH owner,
+ * or a signature that does not recover or match.
  */
 export function verifyMemoAuthor(script: Script, ownerScript: Uint8Array, ecc: Ecc): boolean {
   const parsed = parse(script);

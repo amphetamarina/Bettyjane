@@ -1,9 +1,5 @@
-/**
- * Pure helpers for model-based capture: rendering the latest transcript turn as
- * text for a distiller, and reading the distiller's reply back into notes. Kept
- * free of I/O and chain code so the rules are unit-testable; the capture hook
- * and its worker do the file, subprocess, and chain work around them.
- */
+// Pure (no I/O) helpers for rendering a transcript turn and parsing a
+// distiller's reply, so the rules are unit-testable.
 
 interface ContentBlock {
   readonly type?: string;
@@ -30,11 +26,7 @@ export function truncateToBytes(value: string, maxBytes: number): string {
   return out;
 }
 
-/**
- * Like {@link truncateToBytes}, but when it has to cut, it backs up to the last
- * word boundary so a memory never ends mid-word. Falls back to the hard byte
- * cut when there is no earlier space to retreat to.
- */
+/** {@link truncateToBytes}, but backs up to the last word boundary when it cuts. */
 export function truncateToBytesAtWord(value: string, maxBytes: number): string {
   const cut = truncateToBytes(value, maxBytes);
   if (cut.length === value.length) return cut;
@@ -59,12 +51,10 @@ interface MemoryOpsEnvelope {
 }
 
 /**
- * The notes to remember from a distiller's reply. The reply is the JSON
- * envelope `claude --output-format json` prints, carrying the schema-validated
- * memory-ops block in `structured_output`. Each note is trimmed and capped to
- * the byte budget at a word boundary; blank and non-string entries are dropped.
- * Throws when the reply is not the expected JSON, reports an error, or lacks a
- * remember array, so the caller can decline to write rather than mint garbage.
+ * Parse the schema-validated reply from `claude --output-format json`, reading
+ * notes from `structured_output.remember`. Throws when the reply is not the
+ * expected JSON, reports an error, or lacks a remember array, so the caller can
+ * decline to write rather than mint garbage.
  */
 export function parseMemoryOps(claudeStdout: string, maxBytes: number): string[] {
   let envelope: MemoryOpsEnvelope;
@@ -86,12 +76,10 @@ export function parseMemoryOps(claudeStdout: string, maxBytes: number): string[]
 }
 
 /**
- * Read notes from an arbitrary distiller CLI's raw stdout, leniently, so any
- * model command can be used (not just `claude`). Accepts, in order: a JSON array
- * of strings, a JSON object with a `remember` string array, either of those
- * inside a ```fenced``` block, or — failing all that — one note per line with
- * any leading bullet or number stripped. Each note is trimmed and byte-capped at
- * a word boundary; blanks are dropped. Returns [] when nothing usable is found.
+ * Read notes from an arbitrary distiller CLI's stdout, leniently. Accepts, in
+ * order: a JSON array of strings, a JSON object with a `remember` string array,
+ * either of those inside a ```fenced``` block, or one note per line with any
+ * leading bullet or number stripped. Returns [] when nothing usable is found.
  */
 export function parseNotes(stdout: string, maxBytes: number): string[] {
   const raw = stripFence(stdout.trim());
@@ -151,12 +139,10 @@ function entriesOf(lines: readonly string[]): RenderedEntry[] {
 }
 
 /**
- * The latest turn as text for a distiller: the last thing the human asked plus
- * the assistant's response to it, formatted as labelled blocks. Earlier
- * exchanges, isMeta injections, and entries that carry no text (tool calls and
- * tool results) are dropped, so the turn is just what was said this round.
- * Truncated to `maxBytes` from the head, which keeps the user's ask. Returns an
- * empty string when the turn holds no human ask.
+ * The last user message and the assistant's response, as labelled blocks.
+ * Earlier exchanges, isMeta injections, and text-less entries (tool calls and
+ * results) are dropped. Truncated from the head so the user's ask survives.
+ * Empty string when the turn holds no human ask.
  */
 export function renderTurn(lines: readonly string[], maxBytes: number): string {
   const entries = entriesOf(lines);

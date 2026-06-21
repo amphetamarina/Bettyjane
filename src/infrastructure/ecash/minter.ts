@@ -26,20 +26,14 @@ import { MemoTooLargeError } from "./errors";
 import { networkConfig, type Network, type NetworkConfig } from "./network";
 
 /**
- * Writing a memo is minting a coin: spend some of the author's funding XEC,
- * attach the memo as an OP_RETURN, and lay down a fresh dust coin that anchors
- * that memo to the author's address. The dust coin is the memory; the OP_RETURN
- * is its text. This module is the write half of the system — the first thing
- * that builds, signs, and broadcasts a transaction.
- *
- * Coins at the address come in two kinds, told apart by value alone: memo coins
- * hold exactly {@link DUST_SATS}, funding/change coins hold more. Minting only
- * ever spends the funding kind, so a new memory never disturbs an existing one.
- * Forgetting is the opposite write — {@link Minter.spend} deliberately consumes
- * one memo coin to drop it from the live set, leaving every other coin alone.
+ * The write half: build, sign, and broadcast the transactions that mint and
+ * forget memos. A memo coin is the memory and its OP_RETURN is the text. Coins
+ * are told apart by value — memo coins hold exactly {@link DUST_SATS}, funding
+ * coins hold more — and minting only spends funding, so it never disturbs an
+ * existing memory.
  */
 
-/** Where the OP_RETURN sits, the memo coin right after it, change last. */
+/** Output layout: the OP_RETURN first, the memo coin next, change last. */
 const OP_RETURN_VOUT = 0;
 const MEMO_COIN_VOUT = 1;
 
@@ -133,7 +127,6 @@ export class Minter {
     return new Minter(coins, broadcaster, options);
   }
 
-  /** Mint one memo as a coin signed by `signer`, and broadcast it. */
   async mint(memo: Memo, signer: Signer): Promise<MintResult> {
     const ownerScript = Address.fromCashAddress(signer.address).toScript();
     const funding = await this.fundingCoins(signer.address);
@@ -141,9 +134,9 @@ export class Minter {
     const tx = new TxBuilder({
       inputs: this.signedInputs(funding, signer, ownerScript),
       outputs: [
-        { sats: 0n, script: this.authoredMemo(memo, signer) }, // OP_RETURN_VOUT: the memo text
-        { sats: DUST_SATS, script: ownerScript }, // MEMO_COIN_VOUT: the memory
-        ownerScript, // leftover change, dropped into the fee if below dust
+        { sats: 0n, script: this.authoredMemo(memo, signer) },
+        { sats: DUST_SATS, script: ownerScript },
+        ownerScript, // change, dropped into the fee if below dust
       ],
     }).sign({ ecc: this.ecc, feePerKb: this.feePerKb, dustSats: DUST_SATS });
 
@@ -153,11 +146,8 @@ export class Minter {
   }
 
   /**
-   * Mint a memo as pure data: an OP_RETURN with change only, no dust memo coin.
-   * Used for the chunks a large memory is split across — each chunk carries text
-   * but is not itself a live memory coin, so it never appears in the live set.
-   * The pointer coin that names the chunks (see {@link Minter.remember}) is the
-   * memory; the chunk text stays retrievable from the chain by txid forever.
+   * Mint a memo as pure data: an OP_RETURN with change only, no dust coin, so it
+   * never joins the live set. Used for the chunks a large memory is split across.
    */
   async mintData(memo: Memo, signer: Signer): Promise<MintResult> {
     const ownerScript = Address.fromCashAddress(signer.address).toScript();
@@ -166,8 +156,8 @@ export class Minter {
     const tx = new TxBuilder({
       inputs: this.signedInputs(funding, signer, ownerScript),
       outputs: [
-        { sats: 0n, script: encodeMemo(memo) }, // OP_RETURN: the chunk text
-        ownerScript, // change; no dust coin, so this tx adds nothing to the live set
+        { sats: 0n, script: encodeMemo(memo) },
+        ownerScript, // change only; no dust coin means nothing joins the live set
       ],
     }).sign({ ecc: this.ecc, feePerKb: this.feePerKb, dustSats: DUST_SATS });
 
@@ -177,29 +167,18 @@ export class Minter {
   }
 
   /**
-   * Remember a note: mint a memory-kind coin carrying `value`. The agent's write
-   * verb — the mirror of {@link Minter.spend}, which forgets. The coin is laid
-   * down at the signer's own address, so a remembered note is held by the same
-   * key that can later forget it.
-   *
-   * A note that fits one OP_RETURN is stored inline as text. A longer one is
-   * split into chunk transactions (see {@link Minter.mintData}) and the memory
-   * coin becomes a pointer naming those chunks in order; the reader rejoins them.
-   * A note too long even for the pointer's chunk capacity is rejected.
+   * Mint a memory-kind coin carrying `value`. A note that fits one OP_RETURN is
+   * stored inline; a longer one is split across chunk transactions with the coin
+   * holding a pointer to them. A note too long even for that is rejected.
    */
   async remember(value: string, signer: Signer): Promise<MintResult> {
     return this.writeText("memory", value, signer);
   }
 
   /**
-   * Remember a note privately: encrypt `value` to `recipientPubkey`
-   * with ECIES and mint the ciphertext as an encrypted memory coin, so the note
-   * lives on the public chain readable only by the holder of the matching secret
-   * key. Encrypt to the author's own pubkey to remember-to-self.
-   *
-   * The encrypted blob must fit one inline payload ({@link MAX_PAYLOAD_BYTES});
-   * a longer note throws {@link MemoTooLargeError} — encrypted notes are not yet
-   * split across a pointer chain.
+   * Encrypt `value` to `recipientPubkey` and mint it as an encrypted memory coin,
+   * readable only by the holder of the matching secret key. The blob must fit one
+   * inline payload — encrypted notes are not split across a pointer chain.
    */
   async rememberPrivate(
     value: string,
@@ -213,23 +192,12 @@ export class Minter {
     return this.mint(memory(encrypted(ciphertext)), signer);
   }
 
-  /**
-   * Pin a durable note: mint a pin-kind coin carrying `value`, signed by the
-   * human key. The human's write verb, the mirror of {@link Minter.unpin}. Like
-   * remember it stores a long note across a pointer chain, but pins are meant to
-   * stay few and short.
-   */
+  /** Mint a pin-kind coin carrying `value`, the human's durable counterpart to remember. */
   async pin(value: string, signer: Signer): Promise<MintResult> {
     return this.writeText("pin", value, signer);
   }
 
-  /**
-   * Unpin a durable note by its id: the human's drop verb, the mirror of
-   * {@link Minter.pin}. Identical to forgetting — it spends the named coin — but
-   * named for the human side. The signature decides what may be spent: spend
-   * only ever consults the signer's own address, so the human key drops pins and
-   * the agent key drops memories; neither can spend the other's coins.
-   */
+  /** Drop a pin by spending its coin; the human's counterpart to forget. */
   async unpin(id: string, signer: Signer): Promise<SpendResult> {
     return this.spend(parseCoinId(id), signer);
   }
@@ -253,19 +221,14 @@ export class Minter {
     return this.mint(withKind(kind, pointer(concatTxids(txids))), signer);
   }
 
-  /**
-   * Forget a memory by its id: parse the `txid:outIdx` id into the outpoint it
-   * names and spend that coin. The agent's drop verb, taking the same string id
-   * a coin is minted or listed under, so an agent never handles a raw outpoint.
-   */
+  /** Forget a memory by spending the coin its id names. */
   async forget(id: string, signer: Signer): Promise<SpendResult> {
     return this.spend(parseCoinId(id), signer);
   }
 
   /**
-   * Mint several memos from one signer, in order. Each mint spends the change
-   * the previous one left behind, so the coins must be minted sequentially, not
-   * in parallel; the returned results follow the input order.
+   * Mint several memos in order. Each spends the change the previous left, so
+   * they must run sequentially, not in parallel.
    */
   async mintAll(memos: readonly Memo[], signer: Signer): Promise<MintResult[]> {
     const results: MintResult[] = [];
@@ -276,11 +239,9 @@ export class Minter {
   }
 
   /**
-   * Mint several memos in one transaction via an eMPP batch: a single
-   * OP_RETURN carries every memo as a section, and one dust coin is laid down per
-   * section so each note stays an independently forgettable coin. The dust coins
-   * sit at vouts 1..N, matching the section order. Throws if the memos do not fit
-   * one OP_RETURN — pack with {@link Minter.rememberBatch} to avoid that.
+   * Mint several memos in one transaction as eMPP sections, one dust coin each at
+   * vouts 1..N so every note stays independently forgettable. Throws if they do
+   * not fit one OP_RETURN — use {@link Minter.rememberBatch} to pack them first.
    */
   async mintBatch(memos: readonly Memo[], signer: Signer): Promise<MintBatchResult> {
     const ownerScript = Address.fromCashAddress(signer.address).toScript();
@@ -290,9 +251,9 @@ export class Minter {
     const tx = new TxBuilder({
       inputs: this.signedInputs(funding, signer, ownerScript),
       outputs: [
-        { sats: 0n, script: encodeMemoBatch(memos) }, // OP_RETURN_VOUT: every memo
-        ...dustCoins, // one dust memo coin per section, in order
-        ownerScript, // change
+        { sats: 0n, script: encodeMemoBatch(memos) },
+        ...dustCoins,
+        ownerScript,
       ],
     }).sign({ ecc: this.ecc, feePerKb: this.feePerKb, dustSats: DUST_SATS });
 
@@ -302,11 +263,9 @@ export class Minter {
   }
 
   /**
-   * Remember several notes with as few transactions as possible: pack
-   * the notes into eMPP batches that each fit one OP_RETURN and mint one
-   * transaction per batch, returning a result per transaction. Each note must fit
-   * a single section ({@link MAX_PAYLOAD_BYTES}); a longer note throws — store it
-   * with {@link Minter.remember}, which splits it across a pointer chain.
+   * Pack notes into eMPP batches that each fit one OP_RETURN and mint one
+   * transaction per batch. Each note must fit a single section; a longer one
+   * throws — use {@link Minter.remember}, which splits across a pointer chain.
    */
   async rememberBatch(values: readonly string[], signer: Signer): Promise<MintBatchResult[]> {
     const memos = values.map((value) => withKind("memory", text(value)));
@@ -318,12 +277,9 @@ export class Minter {
   }
 
   /**
-   * Forget a memory by spending its coin. The dust coin named by `outpoint`
-   * leaves the live set, and its value plus a funding coin (to cover the fee) is
-   * swept back to the author as change. Forgetting writes nothing to an
-   * OP_RETURN — the spend transaction itself is the record of the change, and
-   * the chain keeps the full history. Other memo coins at the address are never
-   * touched.
+   * Spend a memo coin to drop it from the live set, sweeping its value and a
+   * funding coin back as change. No OP_RETURN: the spend itself is the record,
+   * and other coins at the address are left untouched.
    */
   async spend(
     outpoint: { readonly txid: string; readonly outIdx: number },
@@ -337,7 +293,7 @@ export class Minter {
 
     const tx = new TxBuilder({
       inputs: this.signedInputs([target, ...funding], signer, ownerScript),
-      outputs: [ownerScript], // the reclaimed value, swept back as funding
+      outputs: [ownerScript], // reclaimed value, swept back as funding
     }).sign({ ecc: this.ecc, feePerKb: this.feePerKb, dustSats: DUST_SATS });
 
     const rawTx = tx.ser();
@@ -346,10 +302,9 @@ export class Minter {
   }
 
   /**
-   * Encode a memo for its OP_RETURN, signing the content when it fits.
-   * An inline text note within {@link MAX_SIGNED_PAYLOAD_BYTES} is minted as a
-   * signed v2 memo so its authorship is provable from the coin alone; pointer
-   * heads and longer notes fall back to the unsigned v1 encoding.
+   * Sign inline text within {@link MAX_SIGNED_PAYLOAD_BYTES} as a v2 memo, so its
+   * authorship is provable from the coin; pointer heads and longer notes fall
+   * back to unsigned v1.
    */
   private authoredMemo(memo: Memo, signer: Signer): Script {
     if (
@@ -398,7 +353,6 @@ function sameOutpoint(
   return a.txid === b.txid && a.outIdx === b.outIdx;
 }
 
-/** Wrap content in the memo of the given author kind. */
 function withKind(kind: MemoKind, content: MemoContent): Memo {
   return kind === "pin" ? pin(content) : memory(content);
 }

@@ -1,17 +1,4 @@
 #!/usr/bin/env bun
-/**
- * bj — Bettyjane command-line tool (litcli style).
- *
- * Subcommands:
- *   inspect <txid>   decode the memo in a transaction and report its coin
- *   pin <note>       mint a durable human pin (signed with the human key)
- *   unpin <id>       forget a pin by its coin id (txid:vout)
- *   init             show the wallet's addresses, funding, and current memory
- *
- * The write subcommands and init read the wallet from the environment
- * (BJ_MNEMONIC / BJ_NETWORK / BJ_PASSPHRASE); inspect needs no wallet.
- */
-
 import "ecash-lib/dist/initNodeJs.js";
 import {
   ConsensusMinter,
@@ -140,7 +127,6 @@ interface CommonArgs {
   positional: string;
 }
 
-/** Parse the flags shared by the memory verbs: network, namespace, optional transcript, and a positional. */
 function parseCommon(args: string[]): CommonArgs {
   const out: CommonArgs = {
     network: parseNetwork(process.env.BJ_NETWORK ?? "testnet"),

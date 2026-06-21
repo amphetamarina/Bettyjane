@@ -8,13 +8,11 @@ import {
 import { networkConfig, type Network, type NetworkConfig } from "./network";
 
 /**
- * Reads the agent's memory address from the chain to answer one question:
- * is it funded yet? This is the observe half of bootstrap — funding the
- * address (sending it XEC from a wallet or faucet) happens out of band; here we
- * watch for the coins to arrive and confirm the address is ready to write.
+ * Polls an address until it is funded. Funding the address happens out of band;
+ * this only watches for the coins to arrive.
  */
 
-/** Chronik in mempool reports an unconfirmed UTXO's block height as this. */
+/** Chronik reports an unconfirmed (mempool) UTXO's block height as this. */
 const MEMPOOL_BLOCK_HEIGHT = -1;
 
 /** The slice of Chronik this gateway depends on; satisfied by {@link ChronikClient}. */

@@ -1,28 +1,12 @@
-/**
- * Choosing the working set: the small slice of memory the brain sees each turn.
- * The live set is already curated by forgetting, but it is still not all poured
- * into the prompt — retrieveRelevant picks at most MAX_WORKING of it, ranked by
- * similarity to a query when one is given, or in order otherwise. Pure: callers
- * supply the items and, for ranking, an index.
- */
-
 import { EmbeddingIndex, type Embedder, type Vector } from "./embedding-index";
 
-/** Default working-set size: a couple dozen, the knob the spec leaves to the model. */
 export const DEFAULT_MAX_WORKING = 24;
 
-/** A memory's coin id and text, the input to rebuilding the index. */
 export interface IndexEntry {
   readonly id: string;
   readonly text: string;
 }
 
-/**
- * Rebuild the embedding index from memory texts: embed each and key the vector
- * by its coin id. The index is a cache, not the truth, so this can run any time
- * from the live coins read off the chain — losing the index costs nothing
- * permanent.
- */
 export async function buildIndex(
   entries: readonly IndexEntry[],
   embedder: Embedder,
@@ -34,17 +18,15 @@ export async function buildIndex(
   return index;
 }
 
-/** A query to rank by: an embedding vector and the index to score against. */
 export interface RelevanceQuery {
   readonly index: EmbeddingIndex;
   readonly vector: Vector;
 }
 
 /**
- * The working set: at most `k` items. With a query, items are ranked by the
- * index's similarity to the query vector, most relevant first; items absent from
- * the index keep their original order after the ranked ones. Without a query,
- * the first `k` items are returned as given.
+ * At most `k` items, ranked by similarity to the query vector when one is given
+ * (items absent from the index keep their order after the ranked ones), or the
+ * first `k` as given when it is not.
  */
 export function retrieveRelevant<T extends { readonly id: string }>(
   items: readonly T[],
